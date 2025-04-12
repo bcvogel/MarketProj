@@ -32,6 +32,11 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
+# User registration request model
+class UserRegister(BaseModel):
+    username: str
+    password: str
+
 # Stock transaction request model
 class StockTransaction(BaseModel):
     stock: str
@@ -50,6 +55,19 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
     if not user or user["password"] != form_data.password:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     return {"access_token": form_data.username, "token_type": "bearer"}
+
+
+@app.post("/register")
+def register_user(user: UserRegister):
+    if user.username in users_db:
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    users_db[user.username] = {
+        "password": user.password,
+        "balance": 10000,
+        "stocks": {}
+    }
+    return {"message": f"User '{user.username}' registered successfully."}
 
 
 @app.get("/stocks", response_model=List[dict])
