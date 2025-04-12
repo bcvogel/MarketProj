@@ -1,35 +1,79 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, CheckConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
+
 
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
-    email = Column(String, unique=True, index=True)
-    balance = Column(Float, default=10000.0)  # Default cash balance
+    full_name = Column(String, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False)
+    password_hash = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    role = Column(String, nullable=False)  # 'Customer' or 'Administrator'
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     transactions = relationship("Transaction", back_populates="user")
+    portfolio = relationship("Portfolio", back_populates="user")
+    cash_account = relationship("CashAccount", uselist=False, back_populates="user")
+
 
 class Stock(Base):
     __tablename__ = "stocks"
 
     id = Column(Integer, primary_key=True, index=True)
-    ticker = Column(String, unique=True, index=True)
-    company_name = Column(String)
-    price = Column(Float)
-    volume = Column(Integer)
+    company_name = Column(String, nullable=False)
+    ticker = Column(String, unique=True, index=True, nullable=False)
+    volume = Column(Integer, CheckConstraint("volume >= 0"), nullable=False)
+    current_price = Column(Float, CheckConstraint("current_price >= 0"), nullable=False)
+    initial_price = Column(Float, CheckConstraint("initial_price >= 0"), nullable=False)
+    daily_high = Column(Float, CheckConstraint("daily_high >= 0"), nullable=False)
+    daily_low = Column(Float, CheckConstraint("daily_low >= 0"), nullable=False)
+    market_cap = Column(Float, CheckConstraint("market_cap >= 0"), nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    transactions = relationship("Transaction", back_populates="stock")
+    portfolio = relationship("Portfolio", back_populates="stock")
+
 
 class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    stock_id = Column(Integer, ForeignKey("stocks.id"))
-    transaction_type = Column(String)  # "buy" or "sell"
-    amount = Column(Float)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False)
+    transaction_type = Column(String, nullable=False)  # 'BUY' or 'SELL'
+    quantity = Column(Integer, CheckConstraint("quantity > 0"), nullable=False)
+    price_per_share = Column(Float, CheckConstraint("price_per_share >= 0"), nullable=False)
+    total_amount = Column(Float, CheckConstraint("total_amount >= 0"), nullable=False)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="transactions")
+    stock = relationship("Stock", back_populates="transactions")
+
+
+class Portfolio(Base):
+    __tablename__ = "portfolio"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stock_id = Column(Integer, ForeignKey("stocks.id"), nullable=False)
+    quantity = Column(Integer, CheckConstraint("quantity >= 0"), nullable=False)
+    purchase_price = Column(Float, CheckConstraint("purchase_price >= 0"), nullable=False)
+    current_value = Column(Float, CheckConstraint("current_value >= 0"), nullable=False)
+
+    user = relationship("User", back_populates="portfolio")
+    stock = relationship("Stock", back_populates="portfolio")
+
+
+class CashAccount(Base):
+    __tablename__ = "cash_account"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
+    balance = Column(Float, CheckConstraint("balance >= 0"), nullable=False)
+    last_updated = Column(DateTime, default=datetime.datetime.utcnow)
+
+    user = relationship("User", back_populates="cash_account")
