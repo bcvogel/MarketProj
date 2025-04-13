@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Home from './Home';
 import Login from './Login';
 import CreateUser from './CreateUser';
+import Portfolio from "./Portfolio";
 import './App.css'; 
 
 function App() {
@@ -29,6 +30,8 @@ function App() {
                 <Route path="/" element={<Home stocks={stocks}/>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/createprofile" element={<CreateUser />} />
+                <Route path="/portfolio" element={<Portfolio stocks={stocks}/>} />
+                <Route path="/transaction" element={<transaction stocks={stocks}/>} />
             </Routes>
           </div>
         </Router>

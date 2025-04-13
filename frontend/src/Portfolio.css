@@ -1,0 +1,158 @@
+/* Portfolio.css */
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+  }
+  
+  header {
+    background-color: #90aa8a;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: 5px;
+  }
+  
+  header h1 {
+    font-size: 28px;
+    font-weight: bold;
+  }
+  
+  .welcome-text {
+    display: flex;
+    align-items: center;
+  }
+  
+  .welcome-text span {
+    margin-right: 10px;
+  }
+  
+  .container {
+    padding: 20px;
+  }
+  
+  .stocks-section {
+    margin-top: 20px;
+  }
+  
+  .stocks-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  
+  .stocks-carousel {
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    gap: 20px;
+  }
+  
+  .stock-card {
+    background: white;
+    padding: 15px;
+    width: 220px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  
+  .stock-card h3 {
+    margin-bottom: 5px;
+  }
+  
+  .stock-card p {
+    margin: 3px 0;
+  }
+  
+  .stock-chart {
+    height: 100px;
+    background-color: #eee;
+    margin: 10px 0;
+    border-radius: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 10px;
+    color: #666;
+  }
+  
+  .stock-card button {
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 8px;
+    width: 100%;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .controls {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  
+  .controls button {
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
+  .account-section {
+    margin-top: 40px;
+  }
+  
+  .account-section h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 15px;
+  }
+  
+  .account-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  
+  .account-card {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    position: relative;
+  }
+  
+  .account-card button {
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    cursor: pointer;
+  }
+  
+  .edit-info-button {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .edit-info-button button {
+    background-color: black;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  
