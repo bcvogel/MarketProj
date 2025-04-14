@@ -14,7 +14,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     role = Column(String, nullable=False)  # 'Customer' or 'Administrator'
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-
+    balance = Column(Float, default=0.0)
     transactions = relationship("Transaction", back_populates="user")
     portfolio = relationship("Portfolio", back_populates="user")
     cash_account = relationship("CashAccount", uselist=False, back_populates="user")
@@ -26,6 +26,7 @@ class Stock(Base):
     id = Column(Integer, primary_key=True, index=True)
     company_name = Column(String, nullable=False)
     ticker = Column(String, unique=True, index=True, nullable=False)
+    price = Column(Float)
     volume = Column(Integer, CheckConstraint("volume >= 0"), nullable=False)
     current_price = Column(Float, CheckConstraint("current_price >= 0"), nullable=False)
     initial_price = Column(Float, CheckConstraint("initial_price >= 0"), nullable=False)
