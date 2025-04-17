@@ -6,3 +6,4 @@ pydantic  # Data validation and serialization
 python-dotenv  # Environment variable management
 requests  # Making HTTP requests if needed
 python-multipart
+passlib[bcrypt]

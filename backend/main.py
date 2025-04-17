@@ -1,14 +1,18 @@
-from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from database import SessionLocal
+from models import Stock, User as DBUser, Transaction, Portfolio
 from pydantic import BaseModel
 from typing import List
-import random
-from datetime import datetime, time, date
+from datetime import datetime, time
+import asyncio
+from passlib.hash import bcrypt
 
 app = FastAPI()
 
-# CORS Configuration
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,29 +21,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory database
-users_db = {
-    "Admin": {
-        "password": "Password123",
-        "balance": 999999,
-        "stocks": {},
-        "role": "Administrator"
-    },
-    "testuser": {
-        "password": "testpass",
-        "balance": 10000,
-        "stocks": {},
-        "role": "Customer"
-    }
-}
+# OAuth2 setup
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-stocks_db = {
-    "AAPL": {"name": "Apple Inc.", "price": random.uniform(100, 200)},
-    "GOOGL": {"name": "Alphabet Inc.", "price": random.uniform(2000, 3000)},
-    "AMZN": {"name": "Amazon.com Inc.", "price": random.uniform(3000, 4000)},
-}
-
-# Market schedule configuration
+# Market settings
 market_schedule = {
     "open_time": time(9, 30),
     "close_time": time(16, 0),
@@ -47,22 +32,11 @@ market_schedule = {
     "is_open": True
 }
 
-# Auth
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 # Models
-class UserLogin(BaseModel):
-    username: str
-    password: str
-
-class UserRegister(BaseModel):
-    username: str
-    password: str
-
 class StockTransaction(BaseModel):
     stock: str
     amount: int
-    user: str
+    username: str
 
 class CreateStockRequest(BaseModel):
     company_name: str
@@ -71,18 +45,59 @@ class CreateStockRequest(BaseModel):
     initial_price: float
 
 class MarketHoursRequest(BaseModel):
-    open_time: str  # "09:30"
-    close_time: str  # "16:00"
+    open_time: str
+    close_time: str
 
-# Auth dependencies
+class UserRegister(BaseModel):
+    full_name: str
+    username: str
+    password: str
+    email: str
+
+# Auth
+@app.post("/token")
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    db = SessionLocal()
+    user = db.query(DBUser).filter_by(username=form_data.username).first()
+    db.close()
+    if not user or not bcrypt.verify(form_data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    return {"access_token": user.username, "token_type": "bearer"}
+
+@app.post("/register")
+def register_user(user: UserRegister):
+    db = SessionLocal()
+    existing_user = db.query(DBUser).filter_by(username=user.username).first()
+    if existing_user:
+        db.close()
+        raise HTTPException(status_code=400, detail="Username already exists")
+
+    new_user = DBUser(
+        full_name=user.full_name,
+        username=user.username,
+        password_hash=bcrypt.hash(user.password),
+        email=user.email,
+        role="Customer",
+        balance=10000.0
+    )
+
+    db.add(new_user)
+    db.commit()
+    db.close()
+
+    return {"message": f"User '{user.username}' registered successfully."}
+
+# Dependencies
 def get_current_user(token: str = Depends(oauth2_scheme)):
-    user = users_db.get(token)
+    db = SessionLocal()
+    user = db.query(DBUser).filter_by(username=token).first()
+    db.close()
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user
 
-def admin_required(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "Administrator":
+def admin_required(current_user: DBUser = Depends(get_current_user)):
+    if current_user.role != "Administrator":
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
@@ -90,9 +105,7 @@ def admin_required(current_user: dict = Depends(get_current_user)):
 def is_market_open():
     now = datetime.now()
     current_time = now.time()
-    if now.weekday() >= 5:
-        return False
-    if now.date() in market_schedule["holidays"]:
+    if now.weekday() >= 5 or now.date() in market_schedule["holidays"]:
         return False
     if not market_schedule["is_open"]:
         return False
@@ -100,91 +113,138 @@ def is_market_open():
         return False
     return True
 
-# Routes
 @app.get("/")
 def read_root():
-    print("Available users:", list(users_db.keys()))
     return {"message": "Stock Trading App API is running!"}
 
-@app.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = users_db.get(form_data.username)
-    if not user or user["password"] != form_data.password:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-    return {"access_token": form_data.username, "token_type": "bearer"}
-
-@app.post("/register")
-def register_user(user: UserRegister):
-    if user.username in users_db:
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    users_db[user.username] = {
-        "password": user.password,
-        "balance": 10000,
-        "stocks": {},
-        "role": "Customer"
-    }
-    return {"message": f"User '{user.username}' registered successfully."}
-
-@app.get("/stocks", response_model=List[dict])
+@app.get("/stocks")
 def get_stocks():
-    return [{"ticker": ticker, "name": data["name"], "price": round(data["price"], 2)} for ticker, data in stocks_db.items()]
+    db: Session = SessionLocal()
+    stocks = db.query(Stock).all()
+    result = [
+        {
+            "ticker": s.ticker,
+            "name": s.company_name,
+            "price": round(s.current_price, 2),
+            "high": round(s.daily_high, 2),
+            "low": round(s.daily_low, 2)
+        } for s in stocks
+    ]
+    db.close()
+    return result
 
 @app.post("/buy")
 def buy_stock(transaction: StockTransaction):
     if not is_market_open():
         raise HTTPException(status_code=403, detail="Market is currently closed.")
 
-    user = users_db.get(transaction.user)
-    stock = stocks_db.get(transaction.stock)
+    db = SessionLocal()
+    user = db.query(DBUser).filter_by(username=transaction.username).first()
+    stock = db.query(Stock).filter_by(ticker=transaction.stock).first()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not stock:
-        raise HTTPException(status_code=404, detail="Stock not found")
+    if not user or not stock:
+        db.close()
+        raise HTTPException(status_code=404, detail="User or stock not found")
 
-    cost = transaction.amount * stock["price"]
-    if user["balance"] < cost:
+    cost = transaction.amount * stock.current_price
+    if user.balance < cost:
+        db.close()
         raise HTTPException(status_code=400, detail="Insufficient funds")
 
-    user["balance"] -= cost
-    user["stocks"][transaction.stock] = user["stocks"].get(transaction.stock, 0) + transaction.amount
+    user.balance -= cost
 
-    return {"message": f"Bought {transaction.amount} shares of {transaction.stock}", "remaining_balance": user["balance"]}
+    portfolio_entry = db.query(Portfolio).filter_by(user_id=user.id, stock_id=stock.id).first()
+    if portfolio_entry:
+        portfolio_entry.quantity += transaction.amount
+        portfolio_entry.current_value = portfolio_entry.quantity * stock.current_price
+    else:
+        portfolio_entry = Portfolio(
+            user_id=user.id,
+            stock_id=stock.id,
+            quantity=transaction.amount,
+            purchase_price=stock.current_price,
+            current_value=transaction.amount * stock.current_price
+        )
+        db.add(portfolio_entry)
+
+    txn = Transaction(
+        user_id=user.id,
+        stock_id=stock.id,
+        transaction_type="BUY",
+        quantity=transaction.amount,
+        price_per_share=stock.current_price,
+        total_amount=cost
+    )
+    db.add(txn)
+
+    db.commit()
+    db.close()
+    return {"message": f"Bought {transaction.amount} shares of {transaction.stock}"}
 
 @app.post("/sell")
 def sell_stock(transaction: StockTransaction):
     if not is_market_open():
         raise HTTPException(status_code=403, detail="Market is currently closed.")
 
-    user = users_db.get(transaction.user)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    db = SessionLocal()
+    user = db.query(DBUser).filter_by(username=transaction.username).first()
+    stock = db.query(Stock).filter_by(ticker=transaction.stock).first()
+    portfolio_entry = db.query(Portfolio).filter_by(user_id=user.id, stock_id=stock.id).first()
 
-    if transaction.stock not in user["stocks"] or user["stocks"][transaction.stock] < transaction.amount:
+    if not user or not stock or not portfolio_entry:
+        db.close()
+        raise HTTPException(status_code=404, detail="Required data not found")
+
+    if portfolio_entry.quantity < transaction.amount:
+        db.close()
         raise HTTPException(status_code=400, detail="Not enough shares to sell")
 
-    stock = stocks_db.get(transaction.stock)
-    user["stocks"][transaction.stock] -= transaction.amount
-    user["balance"] += transaction.amount * stock["price"]
+    proceeds = transaction.amount * stock.current_price
+    user.balance += proceeds
+    portfolio_entry.quantity -= transaction.amount
+    portfolio_entry.current_value = portfolio_entry.quantity * stock.current_price
 
-    return {"message": f"Sold {transaction.amount} shares of {transaction.stock}", "new_balance": user["balance"]}
+    txn = Transaction(
+        user_id=user.id,
+        stock_id=stock.id,
+        transaction_type="SELL",
+        quantity=transaction.amount,
+        price_per_share=stock.current_price,
+        total_amount=proceeds
+    )
+    db.add(txn)
+
+    db.commit()
+    db.close()
+    return {"message": f"Sold {transaction.amount} shares of {transaction.stock}"}
 
 @app.post("/admin/create-stock")
-def create_stock(stock: CreateStockRequest, user: dict = Depends(admin_required)):
-    if stock.ticker in stocks_db:
+def create_stock(stock: CreateStockRequest, user: DBUser = Depends(admin_required)):
+    db: Session = SessionLocal()
+    existing = db.query(Stock).filter_by(ticker=stock.ticker).first()
+    if existing:
+        db.close()
         raise HTTPException(status_code=400, detail="Stock already exists")
 
-    stocks_db[stock.ticker] = {
-        "name": stock.company_name,
-        "price": stock.initial_price,
-        "volume": stock.volume
-    }
+    new_stock = Stock(
+        company_name=stock.company_name,
+        ticker=stock.ticker,
+        volume=stock.volume,
+        initial_price=stock.initial_price,
+        current_price=stock.initial_price,
+        daily_high=stock.initial_price,
+        daily_low=stock.initial_price,
+        market_cap=stock.volume * stock.initial_price
+    )
+
+    db.add(new_stock)
+    db.commit()
+    db.close()
 
     return {"message": f"Stock '{stock.ticker}' created successfully."}
 
 @app.post("/admin/set-market-hours")
-def set_market_hours(hours: MarketHoursRequest, user: dict = Depends(admin_required)):
+def set_market_hours(hours: MarketHoursRequest, user: DBUser = Depends(admin_required)):
     try:
         market_schedule["open_time"] = datetime.strptime(hours.open_time, "%H:%M").time()
         market_schedule["close_time"] = datetime.strptime(hours.close_time, "%H:%M").time()
@@ -194,15 +254,22 @@ def set_market_hours(hours: MarketHoursRequest, user: dict = Depends(admin_requi
     return {"message": f"Market hours updated to {hours.open_time} - {hours.close_time}"}
 
 @app.post("/admin/toggle-market")
-def toggle_market(is_open: bool, user: dict = Depends(admin_required)):
+def toggle_market(is_open: bool, user: DBUser = Depends(admin_required)):
     market_schedule["is_open"] = is_open
     return {"message": f"Market is now {'open' if is_open else 'closed'}."}
 
 @app.post("/admin/add-holiday")
-def add_holiday(holiday: str, user: dict = Depends(admin_required)):
+def add_holiday(holiday: str, user: DBUser = Depends(admin_required)):
     try:
         holiday_date = datetime.strptime(holiday, "%Y-%m-%d").date()
         market_schedule["holidays"].add(holiday_date)
         return {"message": f"Holiday {holiday_date} added."}
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+# Startup task
+from tasks import update_stock_prices
+
+@app.on_event("startup")
+async def start_background_tasks():
+    asyncio.create_task(update_stock_prices())
