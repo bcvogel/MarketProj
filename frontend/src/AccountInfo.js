@@ -4,11 +4,6 @@ import "./AccountInfo.css"; // we will create this file
 const AccountInfo = () => {
   return (
     <div className="accountinfo-container">
-      {/* Header */}
-      <header>
-        <h1>Stock Trading System</h1>
-        <div className="user-icon">👤</div>
-      </header>
 
       {/* Account Information Section */}
       <div className="accountinfo-section">
@@ -17,8 +12,7 @@ const AccountInfo = () => {
         {/* Personal Info Card */}
         <div className="info-card">
           <div className="info-buttons">
-            <button className="save-button">Save Changes</button>
-            <button className="password-button">Create New Password</button>
+            <button className="edit">Edit</button>
           </div>
           <p><strong>Username:</strong></p>
           <p><strong>First Name:</strong></p>
