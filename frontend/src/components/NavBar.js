@@ -1,51 +1,56 @@
-import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { FaUserCircle } from 'react-icons/fa';
+import './NavBar.css';
 
-const NavBar = () => {
-    const location = useLocation();
-    const path = location.pathname;
-
-    let navStyle = {
-        backgroundColor: "#91AC8F",
-        color: "#fff",
-        padding: "1rem",
-        display: "flex",
-        alignItems: "center:",
-        justifyContent: "left",
-    };
-
-    let links = [
-        { to: "/dashboard", label: "Dashboard" },
-        { to: "/portfolio", label: "Portfolio" },
-        { to: "/transaction", label: "Transactions" },
-        { to: "/account", label: "Account Info" },
-        { to: "/", label: "Logout"}
-    ];
-
-    // Example: custom appearance for login/register pages
-    if (path === "/login" || path === "/create-user" || path === "/") {
-        navStyle = {
-           // Empty to make sure the user has no access to 
-        };
-        links = links.filter(link =>
-            link.to === "/login" || link.to === "/create-user"
-        );
-    }
+function NavBar() {
+    const [dropdownVisible, setDropdownVisible] = useState(false);
 
     return (
-        <nav style={navStyle}>
-            <div style={{ display: "flex", gap: "2rem"}}>
-                <Link to="/dashboard" style={{ color: "white", textDecoration: "none", fontWeight: "bold", fontSize: "1.2rem" }}>
-                    Stocks For Us
-                </Link>
-                {links.map(link => (
-                    <Link key={link.to} to={link.to} style={{ margin: "0 1rem", color: "white" }}>
-                        {link.label}
-                    </Link>
-                ))}
+        <nav style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', backgroundColor: '#91a68c' }}>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                <strong>Stocks For Us</strong>
+                <Link to="/dashboard">Dashboard</Link>
+                <Link to="/portfolio">Portfolio</Link>
+                <Link to="/transaction">Transactions</Link>
+            </div>
+
+            <div
+                style={{ position: 'relative' }}
+                onMouseEnter={() => setDropdownVisible(true)}
+                onMouseLeave={() => setDropdownVisible(false)}
+            >
+                <FaUserCircle
+                    size={28}
+                    style={{ cursor: 'pointer', color: 'white' }}
+                    onClick={() => window.location.href = "/account"}
+                />
+                {dropdownVisible && (
+                    <div style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: '100%',
+                        backgroundColor: '#fff',
+                        border: '1px solid #ccc',
+                        boxShadow: '0px 2px 6px rgba(0,0,0,0.1)',
+                        zIndex: 1000,
+                        width: '150px'
+                    }}>
+                        <Link to="/account" style={dropdownLinkStyle}>Account Info</Link>
+                        <Link to="/" style={dropdownLinkStyle}>Logout</Link>
+                    </div>
+                )}
             </div>
         </nav>
     );
+}
+
+const dropdownLinkStyle = {
+    display: 'block',
+    padding: '10px',
+    color: '#333',
+    textDecoration: 'none',
+    borderBottom: '1px solid #eee'
 };
 
 export default NavBar;

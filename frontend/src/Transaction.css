@@ -1,28 +1,6 @@
-/* Transaction.css */
-
-body {
-  margin: 0;
-  font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
-}
-
 .transaction-container {
   min-height: 100vh;
   background-color: #f4f4f4;
-}
-
-header {
-  background-color: #90aa8a;
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-radius: 5px;
-}
-
-header h1 {
-  font-size: 28px;
-  font-weight: bold;
 }
 
 .user-icon {

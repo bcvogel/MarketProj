@@ -1,4 +1,5 @@
 import React from "react";
+import "./main.css";
 import "./Portfolio.css";
 
 const Portfolio = () => {

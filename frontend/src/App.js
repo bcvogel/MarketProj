@@ -5,7 +5,6 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 //#endregion
 
 //#region Import pages for routing
-import Home from './Home';
 import Login from './Login';
 import CreateUser from './CreateUser';
 import Dashboard from "./Dashboard";
@@ -15,7 +14,6 @@ import AccountInfo from "./AccountInfo";
 //#endregion
 
 //#region Import designs and components
-import './App.css'; 
 import NavBar from "./components/NavBar";
 //#endregion
 
@@ -34,8 +32,7 @@ function App() {
         <Router>
             <NavBar />
             <Routes>
-                <Route path="/" element={<Home stocks={stocks}/>} />
-                <Route path="/login" element={<Login />} />
+                <Route path="/" element={<Login />} />
                 <Route path="/createprofile" element={<CreateUser />} />
                 <Route path="/dashboard" element={<Dashboard stocks={stocks}/>} />
                 <Route path="/portfolio" element={<Portfolio stocks={stocks}/>} />

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import "./main.css";
 import "./CreateUser.css";
 
 const CreateUser = () => {
@@ -34,7 +35,7 @@ const CreateUser = () => {
       const data = await res.json();
       if (res.ok) {
         setRegisterStatus("Account created successfully!");
-        setTimeout(() => navigate("/login"), 1500);
+        setTimeout(() => navigate("/"), 1500);
       } else {
         setRegisterStatus(data.detail || "Registration failed.");
       }
@@ -87,7 +88,7 @@ const CreateUser = () => {
         </form>
         <p className="register-status">{registerStatus}</p>
         <div className="login-link">
-          <a href="/login">Already have an account? Login</a>
+          <a href="/">Already have an account? Login</a>
         </div>
       </div>
     </div>

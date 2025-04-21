@@ -1,4 +1,5 @@
 import React from "react";
+import "./main.css";
 import "./AccountInfo.css"; // we will create this file
 
 const AccountInfo = () => {
