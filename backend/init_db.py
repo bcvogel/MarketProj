@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-from models import Base, User, Stock
+from models import Base, User, Stock, Portfolio, Transaction
 from passlib.hash import bcrypt
 
 # Create tables
@@ -37,6 +37,7 @@ def seed_data():
         )
     ]
     db.add_all(users)
+    db.commit()  # Commit before querying for 'broc'
 
     # Add sample stocks
     stocks = [
@@ -81,8 +82,52 @@ def seed_data():
             volume=4000
         ),
     ]
-
     db.add_all(stocks)
+    db.commit()  # Commit again before querying stocks
+
+    # Now safe to query broc and the stocks
+    broc = db.query(User).filter_by(username="broc").first()
+    aapl = db.query(Stock).filter_by(ticker="AAPL").first()
+    tsla = db.query(Stock).filter_by(ticker="TSLA").first()
+
+    portfolio_entries = [
+        Portfolio(
+            user_id=broc.id,
+            stock_id=aapl.id,
+            quantity=5,
+            purchase_price=aapl.current_price,
+            current_value=5 * aapl.current_price
+        ),
+        Portfolio(
+            user_id=broc.id,
+            stock_id=tsla.id,
+            quantity=3,
+            purchase_price=tsla.current_price,
+            current_value=3 * tsla.current_price
+        )
+    ]
+
+    transactions = [
+        Transaction(
+            user_id=broc.id,
+            stock_id=aapl.id,
+            transaction_type="BUY",
+            quantity=5,
+            price_per_share=aapl.current_price,
+            total_amount=5 * aapl.current_price
+        ),
+        Transaction(
+            user_id=broc.id,
+            stock_id=tsla.id,
+            transaction_type="BUY",
+            quantity=3,
+            price_per_share=tsla.current_price,
+            total_amount=3 * tsla.current_price
+        )
+    ]
+
+    db.add_all(portfolio_entries)
+    db.add_all(transactions)
 
     db.commit()
     db.close()
@@ -90,3 +135,4 @@ def seed_data():
 
 if __name__ == "__main__":
     seed_data()
+

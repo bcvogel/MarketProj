@@ -24,6 +24,6 @@ if ($backendContainer) {
 Write-Host "Checking running services..." -ForegroundColor Cyan
 docker ps
 
-Write-Host "Setup Complete! 🎉" -ForegroundColor Green
+Write-Host "Setup Complete!" -ForegroundColor Green
 Write-Host "Backend is running at: http://localhost:8000"
 Write-Host "Frontend is running at: http://localhost:3000"

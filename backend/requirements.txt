@@ -1,9 +1,10 @@
 fastapi
 uvicorn
-psycopg2-binary  # PostgreSQL adapter
-SQLAlchemy  # ORM for database management
-pydantic  # Data validation and serialization
-python-dotenv  # Environment variable management
-requests  # Making HTTP requests if needed
+psycopg2-binary
+SQLAlchemy
+pydantic
+python-dotenv
+requests
 python-multipart
 passlib[bcrypt]
+bcrypt==4.0.1
