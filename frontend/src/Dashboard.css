@@ -29,7 +29,7 @@
 
 .dashboard-body {
   display: grid;
-  grid-template-columns: 2fr 2fr 1fr;
+  grid-template-columns: 3fr 2fr 1fr;
   gap: 2rem;
   padding: 2rem;
   background-color: #f4f4f4;
