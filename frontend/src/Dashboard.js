@@ -12,6 +12,18 @@ const Dashboard = () => {
   const username = localStorage.getItem("username");
 
   useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    const username = localStorage.getItem("username");
+    fetch(`http://localhost:8000/cash/${username}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    })
+        .then((res) => res.json())
+        .then((data) => {
+            const walletDiv = document.getElementById("wallet-balance");
+            if (walletDiv && data.balance !== undefined) {
+                walletDiv.textContent = `$${data.balance.toFixed(2)}`;
+            }
+        });
     if (username) {
       axios.get(`http://localhost:8000/account/${username}`)
         .then(res => setAccount(res.data))
