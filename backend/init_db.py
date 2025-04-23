@@ -1,138 +1,132 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session 
 from database import SessionLocal, engine
-from models import Base, User, Stock, Portfolio, Transaction
+from models import Base, User, Stock, Portfolio, Transaction, CashAccount
 from passlib.hash import bcrypt
 
-# Create tables
+# Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
 
 def seed_data():
     db: Session = SessionLocal()
 
-    # Add sample users
-    users = [
-        User(
-            full_name="Admin User",
-            username="Admin",
-            password_hash=bcrypt.hash("Password123"),
-            email="admin@example.com",
-            role="Administrator",
-            balance=999999.0
-        ),
-        User(
-            full_name="Broc Vogel",
-            username="broc",
-            password_hash=bcrypt.hash("password123"),
-            email="broc@example.com",
-            role="Customer",
-            balance=10000.0
-        ),
-        User(
-            full_name="John Doe",
-            username="john_doe",
-            password_hash=bcrypt.hash("password456"),
-            email="john@example.com",
-            role="Customer",
-            balance=15000.0
-        )
+    # Step 1: Insert users one-by-one only if they don't already exist
+    sample_users = [
+        {
+            "full_name": "Admin User",
+            "username": "Admin",
+            "password": "Password123",
+            "email": "admin@example.com",
+            "role": "Administrator",
+            "balance": 999999.0
+        },
+        {
+            "full_name": "Broc Vogel",
+            "username": "broc",
+            "password": "password123",
+            "email": "broc@example.com",
+            "role": "Customer",
+            "balance": 10000.0
+        },
+        {
+            "full_name": "John Doe",
+            "username": "john_doe",
+            "password": "password456",
+            "email": "john@example.com",
+            "role": "Customer",
+            "balance": 15000.0
+        }
     ]
-    db.add_all(users)
-    db.commit()  # Commit before querying for 'broc'
 
-    # Add sample stocks
-    stocks = [
-        Stock(
-            ticker="AAPL",
-            company_name="Apple Inc.",
-            current_price=150.0,
-            initial_price=145.0,
-            daily_high=155.0,
-            daily_low=140.0,
-            market_cap=2_000_000_000_000.0,
-            volume=10000
-        ),
-        Stock(
-            ticker="TSLA",
-            company_name="Tesla Inc.",
-            current_price=900.0,
-            initial_price=850.0,
-            daily_high=920.0,
-            daily_low=840.0,
-            market_cap=800_000_000_000.0,
-            volume=5000
-        ),
-        Stock(
-            ticker="AMZN",
-            company_name="Amazon.com Inc.",
-            current_price=3200.0,
-            initial_price=3100.0,
-            daily_high=3250.0,
-            daily_low=3000.0,
-            market_cap=1_700_000_000_000.0,
-            volume=3000
-        ),
-        Stock(
-            ticker="GOOGL",
-            company_name="Alphabet Inc.",
-            current_price=2800.0,
-            initial_price=2750.0,
-            daily_high=2850.0,
-            daily_low=2700.0,
-            market_cap=1_500_000_000_000.0,
-            volume=4000
-        ),
+    for user_data in sample_users:
+        existing_user = db.query(User).filter_by(username=user_data["username"]).first()
+        if not existing_user:
+            new_user = User(
+                full_name=user_data["full_name"],
+                username=user_data["username"],
+                password_hash=bcrypt.hash(user_data["password"]),
+                email=user_data["email"],
+                role=user_data["role"],
+                balance=user_data["balance"]
+            )
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+
+            # Add cash account only for new users
+            db.add(CashAccount(user_id=new_user.id, balance=new_user.balance))
+            db.commit()
+
+    # Step 2: Add stocks if missing
+    existing_tickers = {s.ticker for s in db.query(Stock).all()}
+    stock_data = [
+        ("AAPL", "Apple Inc.", 150.0, 145.0, 155.0, 140.0, 2_000_000_000_000.0, 10000),
+        ("TSLA", "Tesla Inc.", 900.0, 850.0, 920.0, 840.0, 800_000_000_000.0, 5000),
+        ("AMZN", "Amazon.com Inc.", 3200.0, 3100.0, 3250.0, 3000.0, 1_700_000_000_000.0, 3000),
+        ("GOOGL", "Alphabet Inc.", 2800.0, 2750.0, 2850.0, 2700.0, 1_500_000_000_000.0, 4000)
     ]
-    db.add_all(stocks)
-    db.commit()  # Commit again before querying stocks
 
-    # Now safe to query broc and the stocks
+    for ticker, name, current, initial, high, low, cap, volume in stock_data:
+        if ticker not in existing_tickers:
+            stock = Stock(
+                ticker=ticker,
+                company_name=name,
+                current_price=current,
+                initial_price=initial,
+                daily_high=high,
+                daily_low=low,
+                market_cap=cap,
+                volume=volume
+            )
+            db.add(stock)
+    db.commit()
+
+    # Step 3: Add Broc's portfolio and transactions
     broc = db.query(User).filter_by(username="broc").first()
     aapl = db.query(Stock).filter_by(ticker="AAPL").first()
     tsla = db.query(Stock).filter_by(ticker="TSLA").first()
 
-    portfolio_entries = [
-        Portfolio(
-            user_id=broc.id,
-            stock_id=aapl.id,
-            quantity=5,
-            purchase_price=aapl.current_price,
-            current_value=5 * aapl.current_price
-        ),
-        Portfolio(
-            user_id=broc.id,
-            stock_id=tsla.id,
-            quantity=3,
-            purchase_price=tsla.current_price,
-            current_value=3 * tsla.current_price
-        )
-    ]
+    if not db.query(Portfolio).filter_by(user_id=broc.id).first():
+        db.add_all([
+            Portfolio(
+                user_id=broc.id,
+                stock_id=aapl.id,
+                quantity=5,
+                purchase_price=aapl.current_price,
+                current_value=5 * aapl.current_price
+            ),
+            Portfolio(
+                user_id=broc.id,
+                stock_id=tsla.id,
+                quantity=3,
+                purchase_price=tsla.current_price,
+                current_value=3 * tsla.current_price
+            )
+        ])
+        db.commit()
 
-    transactions = [
-        Transaction(
-            user_id=broc.id,
-            stock_id=aapl.id,
-            transaction_type="BUY",
-            quantity=5,
-            price_per_share=aapl.current_price,
-            total_amount=5 * aapl.current_price
-        ),
-        Transaction(
-            user_id=broc.id,
-            stock_id=tsla.id,
-            transaction_type="BUY",
-            quantity=3,
-            price_per_share=tsla.current_price,
-            total_amount=3 * tsla.current_price
-        )
-    ]
+    if not db.query(Transaction).filter_by(user_id=broc.id).first():
+        db.add_all([
+            Transaction(
+                user_id=broc.id,
+                stock_id=aapl.id,
+                transaction_type="BUY",
+                quantity=5,
+                price_per_share=aapl.current_price,
+                total_amount=5 * aapl.current_price
+            ),
+            Transaction(
+                user_id=broc.id,
+                stock_id=tsla.id,
+                transaction_type="BUY",
+                quantity=3,
+                price_per_share=tsla.current_price,
+                total_amount=3 * tsla.current_price
+            )
+        ])
+        db.commit()
 
-    db.add_all(portfolio_entries)
-    db.add_all(transactions)
-
-    db.commit()
     db.close()
     print("Database initialized with sample data!")
 
 if __name__ == "__main__":
     seed_data()
-
