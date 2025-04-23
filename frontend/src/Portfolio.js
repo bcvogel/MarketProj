@@ -38,6 +38,7 @@ const Portfolio = () => {
         backgroundColor: "rgba(75,192,192,0.4)",
         borderColor: "rgba(75,192,192,1)",
         fill: true,
+        tension: 0.3
       },
     ],
   };
@@ -45,13 +46,13 @@ const Portfolio = () => {
   return (
     <div className="dashboard-container">
       <div className="dashboard-grid">
-        <div className="portfolio-performance">
-          <h3>Portfolio Performance:</h3>
-          <Line data={chartData} options={{ responsive: true }} />
+        <div className="portfolio-performance widget">
+          <h3>Portfolio Performance</h3>
+          <Line data={chartData} options={{ responsive: true, plugins: { legend: { display: false } } }} />
         </div>
 
         <div className="your-stocks">
-          <h3>Your Stocks:</h3>
+          <h3>Your Stocks</h3>
           {portfolio.length === 0 ? (
             <p>No stocks found in your portfolio.</p>
           ) : (

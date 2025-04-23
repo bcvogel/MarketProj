@@ -77,7 +77,19 @@ const Dashboard = () => {
             </div>
             <button className="arrow-button">→</button>
           </div>
+
           <div className="popular-stocks-box">Popular stocks:</div>
+
+          <div className="stock-amount-box">
+            <label>Amount of Shares You have:</label>
+            <input type="text" />
+            <label>Amount of Shares:</label>
+            <input type="text" placeholder="Enter Amount" />
+            <div className="stock-buttons">
+              <button className="buy-button">Buy</button>
+              <button className="sell-button">Sell</button>
+            </div>
+          </div>
         </div>
 
         {/* Center - Widgets */}
@@ -98,17 +110,6 @@ const Dashboard = () => {
             <div className="widget">
               <p>Buy Consensus:</p>
               <Doughnut data={buyConsensusData} />
-            </div>
-          </div>
-
-          <div className="stock-amount-box">
-            <label>Amount of Shares You have:</label>
-            <input type="text" />
-            <label>Amount of Shares:</label>
-            <input type="text" placeholder="Enter Amount" />
-            <div className="stock-buttons">
-              <button className="buy-button">Buy</button>
-              <button className="sell-button">Sell</button>
             </div>
           </div>
         </div>
