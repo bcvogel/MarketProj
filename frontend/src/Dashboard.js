@@ -18,7 +18,35 @@ const Dashboard = () => {
   const timeRanges = {
     "1 Week": 7,
     "3 Months": 90,
-    "6 Months": 180
+    "6 Months": 180 
+  }
+
+  useEffect(() => {
+    const token = localStorage.getItem("access_token");
+    const username = localStorage.getItem("username");
+    fetch(`http://localhost:8000/cash/${username}`, {
+        headers: { Authorization: `Bearer ${token}` }
+    })
+        .then((res) => res.json())
+        .then((data) => {
+            const walletDiv = document.getElementById("wallet-balance");
+            if (walletDiv && data.balance !== undefined) {
+                walletDiv.textContent = `$${data.balance.toFixed(2)}`;
+            }
+        });
+    if (username) {
+      axios.get(`http://localhost:8000/account/${username}`)
+        .then(res => setAccount(res.data))
+        .catch(err => console.error("Error fetching account info:", err));
+
+      axios.get(`http://localhost:8000/portfolio/${username}`)
+        .then(res => setPortfolio(res.data))
+        .catch(err => console.error("Error fetching portfolio:", err));
+    }
+  }, [username]);
+
+  const getPortfolioValue = () => {
+    return portfolio.reduce((sum, item) => sum + item.current_value, 0).toFixed(2);
   };
 
   const generateRandomChartData = (days) => ({
