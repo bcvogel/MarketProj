@@ -6,27 +6,81 @@ import "./main.css";
 import "./Dashboard.css";
 
 const Dashboard = () => {
-  const [account, setAccount] = useState(null);
+  const [cashAccount, setCashAccount] = useState(null);
   const [portfolio, setPortfolio] = useState([]);
   const [stocks, setStocks] = useState([]);
   const [viewMode, setViewMode] = useState("Your Stocks");
   const [selectedTicker, setSelectedTicker] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [stockPrice, setStockPrice] = useState(null);
+  const [filterRange, setFilterRange] = useState("1 Week");
+  const [chartData, setChartData] = useState({ labels: [], datasets: [] });
+
   const username = localStorage.getItem("username");
   const token = localStorage.getItem("token");
 
+  const generateRandomChartData = (days) => ({
+    labels: Array.from({ length: days }, (_, i) => `Day ${i + 1}`),
+    datasets: [
+      {
+        label: "Portfolio Value",
+        data: Array.from({ length: days }, () => Math.floor(Math.random() * 10000)),
+        borderColor: "#4caf50",
+        backgroundColor: "rgba(76, 175, 80, 0.3)",
+        fill: true,
+      },
+    ],
+  });
+
   const fetchAccountInfo = () => {
-    axios.get(`http://localhost:8000/account/${username}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(res => setAccount(res.data)).catch(console.error);
+    axios
+      .get(`http://localhost:8000/account/${username}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setCashAccount(res.data))
+      .catch(console.error);
   };
 
   const fetchPortfolio = () => {
-    axios.get(`http://localhost:8000/portfolio/${username}`).then(res => setPortfolio(res.data)).catch(console.error);
+    axios
+      .get(`http://localhost:8000/portfolio/${username}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setPortfolio(res.data))
+      .catch(console.error);
   };
 
   const fetchStocks = () => {
-    axios.get("http://localhost:8000/stocks").then(res => setStocks(res.data)).catch(console.error);
+    axios
+      .get("http://localhost:8000/stocks")
+      .then((res) => setStocks(res.data))
+      .catch(console.error);
+  };
+
+  const fetchStockPrice = async (ticker) => {
+    try {
+      const res = await axios.get("http://localhost:8000/stocks");
+      const stock = res.data.find((s) => s.ticker === ticker);
+      if (stock) setStockPrice(stock.current_price);
+    } catch (err) {
+      console.error("Error fetching stock price", err);
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      const cashRes = await axios.get(`http://localhost:8000/cash/${username}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCashAccount(cashRes.data);
+
+      const portRes = await axios.get(`http://localhost:8000/portfolio/${username}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPortfolio(portRes.data);
+    } catch (err) {
+      console.error("Refresh failed", err);
+    }
   };
 
   useEffect(() => {
@@ -37,47 +91,14 @@ const Dashboard = () => {
     }
   }, [username]);
 
-  const getPortfolioValue = () => {
-    return portfolio.reduce((sum, item) => sum + item.current_value, 0).toFixed(2);
-  };
-
-  const chartData = {
-    labels: portfolio.map(stock => stock.ticker),
-    datasets: [{
-      label: "Portfolio Value",
-      data: portfolio.map(stock => stock.current_value),
-      borderColor: "#4caf50",
-      backgroundColor: "rgba(76, 175, 80, 0.3)",
-      fill: true
-    }]
-  };
-
-  const weeklyViewsData = {
-    labels: Array.from({ length: 7 }, (_, i) => `Day ${i + 1}`),
-    datasets: [{
-      label: "Views",
-      data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 1000)),
-      borderColor: "#8884d8",
-      backgroundColor: "rgba(136, 132, 216, 0.3)",
-      fill: true
-    }]
-  };
-
-  const buyConsensusData = {
-    labels: ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"],
-    datasets: [{
-      data: [25, 30, 20, 15, 10],
-      backgroundColor: ["#36A2EB", "#4BC0C0", "#FFCE56", "#FF6384", "#9966FF"],
-      hoverOffset: 4
-    }]
-  };
-
-  const leastExpensiveStocks = [...stocks].sort((a, b) => a.current_price - b.current_price).slice(0, 3);
+  useEffect(() => {
+    setChartData(generateRandomChartData({ "1 Week": 7, "3 Months": 90, "6 Months": 180 }[filterRange]));
+  }, [filterRange]);
 
   const handleTransaction = async (type) => {
     if (!selectedTicker || !quantity) return;
 
-    const stock = stocks.find(s => s.ticker === selectedTicker);
+    const stock = stocks.find((s) => s.ticker === selectedTicker);
     const estimatedTotal = stock ? (stock.current_price * quantity).toFixed(2) : 0;
 
     const confirm = window.confirm(
@@ -86,13 +107,17 @@ const Dashboard = () => {
     if (!confirm) return;
 
     try {
-      await axios.post(`http://localhost:8000/${type.toLowerCase()}`, {
-        username,
-        stock: selectedTicker,
-        amount: parseInt(quantity)
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.post(
+        `http://localhost:8000/${type.toLowerCase()}`,
+        {
+          username,
+          stock: selectedTicker,
+          amount: parseInt(quantity),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       alert(`${type} successful!`);
       setQuantity("");
@@ -104,19 +129,45 @@ const Dashboard = () => {
     }
   };
 
+  const weeklyViewsData = {
+    labels: Array.from({ length: 7 }, (_, i) => `Day ${i + 1}`),
+    datasets: [
+      {
+        label: "Views",
+        data: Array.from({ length: 7 }, () => Math.floor(Math.random() * 1000)),
+        borderColor: "#8884d8",
+        backgroundColor: "rgba(136, 132, 216, 0.3)",
+        fill: true,
+      },
+    ],
+  };
+
+  const buyConsensusData = {
+    labels: ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"],
+    datasets: [
+      {
+        data: [25, 30, 20, 15, 10],
+        backgroundColor: ["#36A2EB", "#4BC0C0", "#FFCE56", "#FF6384", "#9966FF"],
+        hoverOffset: 4,
+      },
+    ],
+  };
+
+  const leastExpensiveStocks = [...stocks].sort((a, b) => a.current_price - b.current_price).slice(0, 3);
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
-        <h2>Welcome to your dashboard{account?.full_name ? `, ${account.full_name}` : ""}!</h2>
+        <h2>Welcome to your dashboard!</h2>
       </div>
 
       <div className="dashboard-body three-column-layout">
-        {/* Left - Chart */}
         <div className="dashboard-left">
           <h2>Stock Name:</h2>
           <div className="dashboard-chart-container">
             <button className="arrow-button">←</button>
             <div className="chart-box">
+              <p style={{ textAlign: "center", fontWeight: "600" }}>Stock Price Over Time</p>
               <Line data={chartData} options={{ responsive: true }} />
             </div>
             <button className="arrow-button">→</button>
@@ -127,7 +178,7 @@ const Dashboard = () => {
             <ul>
               {leastExpensiveStocks.map((stock) => (
                 <li key={stock.ticker}>
-                  {stock.company_name} ({stock.ticker}) – ${stock.current_price ? stock.current_price.toFixed(2) : "0.00"}
+                  {stock.company_name} ({stock.ticker}) – ${stock.current_price?.toFixed(2) ?? "0.00"}
                 </li>
               ))}
             </ul>
@@ -135,12 +186,23 @@ const Dashboard = () => {
 
           <div className="stock-amount-box">
             <label>Select Stock:</label>
-            <select value={selectedTicker} onChange={(e) => setSelectedTicker(e.target.value)}>
+            <select
+              value={selectedTicker}
+              onChange={(e) => {
+                setSelectedTicker(e.target.value);
+                fetchStockPrice(e.target.value);
+              }}
+            >
               <option value="">--Select--</option>
-              {stocks.map(stock => (
-                <option key={stock.ticker} value={stock.ticker}>{stock.ticker}</option>
+              {stocks.map((stock) => (
+                <option key={stock.ticker} value={stock.ticker}>
+                  {stock.ticker}
+                </option>
               ))}
             </select>
+
+            {stockPrice && <p>Current Price: ${stockPrice.toFixed(2)}</p>}
+
             <label>Amount:</label>
             <input
               type="number"
@@ -148,9 +210,14 @@ const Dashboard = () => {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
             />
+
             <div className="stock-buttons">
-              <button className="buy-button" onClick={() => handleTransaction("buy")}>Buy</button>
-              <button className="sell-button" onClick={() => handleTransaction("sell")}>Sell</button>
+              <button className="buy-button" onClick={() => handleTransaction("buy")}>
+                Buy
+              </button>
+              <button className="sell-button" onClick={() => handleTransaction("sell")}>
+                Sell
+              </button>
             </div>
           </div>
 
@@ -175,12 +242,12 @@ const Dashboard = () => {
                 {stocks.map((stock) => (
                   <tr key={stock.ticker}>
                     <td>{stock.ticker}</td>
-                    <td>${stock.current_price ? stock.current_price.toFixed(2) : "N/A"}</td>
+                    <td>${stock.current_price?.toFixed(2) ?? "N/A"}</td>
                     <td>{stock.volume ?? "N/A"}</td>
                     <td>${stock.volume && stock.current_price ? (stock.volume * stock.current_price).toLocaleString() : "N/A"}</td>
-                    <td>${stock.initial_price ? stock.initial_price.toFixed(2) : "N/A"}</td>
-                    <td>${stock.daily_high ? stock.daily_high.toFixed(2) : "N/A"}</td>
-                    <td>${stock.daily_low ? stock.daily_low.toFixed(2) : "N/A"}</td>
+                    <td>${stock.initial_price?.toFixed(2) ?? "N/A"}</td>
+                    <td>${stock.daily_high?.toFixed(2) ?? "N/A"}</td>
+                    <td>${stock.daily_low?.toFixed(2) ?? "N/A"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -188,16 +255,23 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Center - Widgets */}
         <div className="dashboard-center">
           <div className="dashboard-widgets">
             <div className="widget">
-              Your Wallet: ${account ? account.balance.toFixed(2) : "0.00"}
+              Your Wallet: ${cashAccount ? cashAccount.balance.toFixed(2) : "0.00"}
             </div>
             <div className="widget">
               <p>Portfolio Performance:</p>
+              <select
+                className="filter-button"
+                value={filterRange}
+                onChange={(e) => setFilterRange(e.target.value)}
+              >
+                <option value="1 Week">1 Week</option>
+                <option value="3 Months">3 Months</option>
+                <option value="6 Months">6 Months</option>
+              </select>
               <Line data={chartData} options={{ responsive: true }} />
-              <button className="filter-button">Filters</button>
             </div>
             <div className="widget">
               <p>Weekly Stock Views:</p>
@@ -210,7 +284,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Right - List */}
         <div className="dashboard-list">
           <div className="list-section">
             <div className="list-header">
@@ -226,7 +299,7 @@ const Dashboard = () => {
                   ? <li>No stocks found.</li>
                   : portfolio.map((stock, index) => (
                       <li key={index}>
-                        {stock.ticker} - {stock.quantity} shares @ ${stock.current_value ? stock.current_value.toFixed(2) : "0.00"}
+                        {stock.ticker} - {stock.quantity} shares @ ${stock.current_value?.toFixed(2) ?? "0.00"}
                       </li>
                     ))
                 : ["AAPL", "TSLA", "AMZN"].map((ticker, index) => (
@@ -235,6 +308,7 @@ const Dashboard = () => {
             </ul>
           </div>
         </div>
+
       </div>
     </div>
   );

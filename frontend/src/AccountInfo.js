@@ -1,24 +1,53 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import "./main.css";
 import "./AccountInfo.css";
 
 const AccountInfo = () => {
-  const [account, setAccount] = useState(null);
   const username = localStorage.getItem("username");
   const token = localStorage.getItem("token");
 
+  const [account, setAccount] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [formData, setFormData] = useState({});
+
   useEffect(() => {
-    if (username) {
-      fetch(`http://localhost:8000/account/${username}`, {
+    fetchAccount();
+  }, []);
+
+  const fetchAccount = async () => {
+    try {
+      const res = await axios.get(`http://localhost:8000/account/${username}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      })
-        .then((res) => res.json())
-        .then((data) => setAccount(data))
-        .catch((err) => console.error("Failed to load account info:", err));
+      });
+      setAccount(res.data);
+      setFormData(res.data);
+    } catch (err) {
+      console.error("Error fetching account info", err);
     }
-  }, [username]);
+  };
+
+  const handleInputChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSave = async () => {
+    try {
+      await axios.put(`http://localhost:8000/account/${username}`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setAccount(formData);
+      setEditMode(false);
+    } catch (err) {
+      console.error("Error updating account", err);
+    }
+  };
+
+  if (!account) return <p>Loading...</p>;
 
   return (
     <div className="accountinfo-container">
@@ -27,13 +56,43 @@ const AccountInfo = () => {
 
         <div className="info-card">
           <div className="info-buttons">
-            <button className="edit">Edit</button>
+            {!editMode ? (
+              <button className="edit" onClick={() => setEditMode(true)}>Edit</button>
+            ) : (
+              <button className="save-button" onClick={handleSave}>Save</button>
+            )}
           </div>
-          <p><strong>Username:</strong> {account?.username || "Loading..."}</p>
-          <p><strong>Full Name:</strong> {account?.full_name || "Loading..."}</p>
-          <p><strong>Role:</strong> {account?.role || "Loading..."}</p>
-          <p><strong>Email:</strong> {account?.email || "Loading..."}</p>
-          <p><strong>Account Created:</strong> {account?.created_at ? new Date(account.created_at).toLocaleString() : "Unknown"}</p>
+
+          <p><strong>Username:</strong> {account.username}</p>
+
+          <p><strong>Full Name:</strong>
+            {editMode ? (
+              <input
+                type="text"
+                name="full_name"
+                value={formData.full_name}
+                onChange={handleInputChange}
+              />
+            ) : (
+              ` ${account.full_name}`
+            )}
+          </p>
+
+          <p><strong>Email:</strong>
+            {editMode ? (
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+              />
+            ) : (
+              ` ${account.email}`
+            )}
+          </p>
+
+          <p><strong>Role:</strong> {account.role}</p>
+          <p><strong>Account Created:</strong> {new Date(account.created_at).toLocaleDateString()}</p>
         </div>
       </div>
     </div>
@@ -41,3 +100,4 @@ const AccountInfo = () => {
 };
 
 export default AccountInfo;
+
