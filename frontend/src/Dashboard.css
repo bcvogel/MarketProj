@@ -2,15 +2,15 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: #f9f9f9;
+  background-color: #f0f2f5;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  padding: 2rem;
 }
 
 .dashboard-body {
   display: grid;
-  grid-template-columns: 1.5fr 3fr 1.5fr;
+  grid-template-columns: 1.4fr 2.2fr 1.4fr;
   gap: 2rem;
-  padding: 2rem;
 }
 
 .dashboard-left,
@@ -18,143 +18,173 @@
 .dashboard-list {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.5rem;
 }
 
 .dashboard-chart-container {
   display: flex;
+  flex-direction: row;
   align-items: center;
+  justify-content: space-between;
   background-color: white;
   padding: 1.2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.chart-box {
+  flex: 1;
+  padding: 1rem;
+  background-color: #fafafa;
+  border: 1px solid #e0e0e0;
   border-radius: 10px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  min-height: 300px;
-  flex-direction: row;
-  justify-content: space-between;
+  margin: 0 1.2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .arrow-button {
   font-size: 1.5rem;
   background: none;
   border: none;
+  color: #444;
   cursor: pointer;
-  color: #333;
-  transition: color 0.2s;
 }
 
 .arrow-button:hover {
   color: #000;
 }
 
-.chart-box {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #fff;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  padding: 1rem;
-  margin: 0 1rem;
-  min-height: 250px;
+.dashboard-widgets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
 }
 
-.popular-stocks-box,
-.widget,
-.dashboard-list,
-.list-section {
-  background-color: #ffffff;
+.widget {
+  background-color: #fff;
+  padding: 1.2rem;
   border-radius: 10px;
-  padding: 1rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 180px;
+}
+
+.widget p {
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .stock-amount-box {
-  margin-top: -10px;
-  width: 100%;
-  max-width: none;
-  align-self: stretch;
+  background-color: #fff;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stock-amount-box label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+  color: #333;
 }
 
 .stock-amount-box input {
   width: 100%;
-  padding: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
   border: 1px solid #ccc;
   border-radius: 6px;
-  margin-bottom: 0.5rem;
 }
 
 .stock-buttons {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
 }
 
 .buy-button,
 .sell-button {
   flex: 1;
-  padding: 0.8rem;
-  font-weight: bold;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
   border: none;
-  background-color: #222;
-  color: white;
   border-radius: 6px;
+  font-weight: 600;
+  color: white;
   cursor: pointer;
   transition: background-color 0.2s ease-in-out;
 }
 
-.buy-button:hover,
+.buy-button {
+  background-color: #2e7d32;
+}
+
+.sell-button {
+  background-color: #c62828;
+}
+
+.buy-button:hover {
+  background-color: #1b5e20;
+}
+
 .sell-button:hover {
-  background-color: #000;
+  background-color: #b71c1c;
 }
 
-.widget {
-  min-height: 140px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 1 1 calc(50% - 1rem);
-  box-sizing: border-box;
+.popular-stocks-box {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.dashboard-widgets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  justify-content: space-between;
-}
-
-.dashboard-list ul {
-  list-style: none;
-  padding: 0;
-  margin-top: 1rem;
-}
-
-.dashboard-list li {
-  background-color: #f0f0f0;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  margin-bottom: 0.5rem;
-  font-size: 0.95rem;
-}
-
-.filter-button {
-  background-color: #000;
-  color: white;
-  border: none;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: background-color 0.2s ease-in-out;
-}
-
-.filter-button:hover {
-  background-color: #222;
+.dashboard-list {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1.2rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
 }
 
 .list-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.dashboard-list ul {
+  list-style: none;
+  padding: 0;
+}
+
+.dashboard-list li {
+  background-color: #f1f3f6;
+  padding: 0.6rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+.filter-button {
+  background-color: #455a64;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.filter-button:hover {
+  background-color: #263238;
 }

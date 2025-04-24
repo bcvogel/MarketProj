@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { Link } from "react-router-dom";
 import "./main.css";
 import "./Transaction.css";
 
 const Transaction = () => {
   const [amount, setAmount] = useState("");
   const [cashBalance, setCashBalance] = useState(0);
+  const [history, setHistory] = useState([]);
   const username = localStorage.getItem("username");
 
   useEffect(() => {
     fetchCashBalance();
+    fetchRecentTransactions();
   }, []);
 
   const fetchCashBalance = async () => {
@@ -18,6 +21,19 @@ const Transaction = () => {
       setCashBalance(res.data.balance);
     } catch (err) {
       console.error("Failed to fetch cash balance", err);
+    }
+  };
+
+  const fetchRecentTransactions = async () => {
+    try {
+      const res = await axios.get("http://localhost:8000/transactions", {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`
+        }
+      });
+      setHistory(res.data.slice(0, 5)); // Show only the latest 5
+    } catch (err) {
+      console.error("Failed to fetch transaction history", err);
     }
   };
 
@@ -50,6 +66,7 @@ const Transaction = () => {
   return (
     <div className="transaction-container">
       <div className="transaction-body">
+
         {/* Left Form Section */}
         <div className="left-box">
           <h2>Transaction:</h2>
@@ -64,12 +81,8 @@ const Transaction = () => {
               onChange={(e) => setAmount(e.target.value)}
             />
             <div className="stock-buttons">
-              <button className="buy-button" onClick={deposit}>
-                Deposit
-              </button>
-              <button className="sell-button" onClick={withdraw}>
-                Withdraw
-              </button>
+              <button className="buy-button" onClick={deposit}>Deposit</button>
+              <button className="sell-button" onClick={withdraw}>Withdraw</button>
             </div>
           </div>
         </div>
@@ -78,12 +91,26 @@ const Transaction = () => {
         <div className="history-box">
           <div className="history-header">
             <h3>History</h3>
-            <button>See All</button>
+            <Link to="/transactionhistory">
+              <button>See All</button>
+            </Link>
           </div>
           <div className="history-list">
-            {/* Future transaction log entries go here */}
+            {history.length === 0 ? (
+              <p>No recent transactions.</p>
+            ) : (
+              <ul>
+                {history.map((txn) => (
+                  <li key={txn.id}>
+                    <strong>{txn.transaction_type}</strong> {txn.quantity} {txn.stock_ticker} @ ${txn.price_per_share.toFixed(2)}<br />
+                    <small>{new Date(txn.timestamp).toLocaleDateString()}</small>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
+
       </div>
     </div>
   );

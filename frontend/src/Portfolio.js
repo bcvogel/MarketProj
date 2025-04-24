@@ -6,28 +6,32 @@ import "./Portfolio.css";
 
 const Portfolio = () => {
   const [portfolio, setPortfolio] = useState([]);
+  const [cashAccount, setCashAccount] = useState(null);
   const username = localStorage.getItem("username");
 
   useEffect(() => {
-    const fetchPortfolio = async () => {
+    const fetchData = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/portfolio/${username}`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch portfolio");
+        const [portfolioRes, cashRes] = await Promise.all([
+          fetch(`http://localhost:8000/portfolio/${username}`),
+          fetch(`http://localhost:8000/cash/${username}`)
+        ]);
+        if (!portfolioRes.ok || !cashRes.ok) {
+          throw new Error("Failed to fetch data");
         }
-        const data = await res.json();
-        setPortfolio(data);
+        const portfolioData = await portfolioRes.json();
+        const cashData = await cashRes.json();
+        setPortfolio(portfolioData);
+        setCashAccount({ balance: cashData.balance }); // Ensure proper shape
       } catch (error) {
-        console.error("Error fetching portfolio:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
     if (username) {
-      fetchPortfolio();
+      fetchData();
     }
   }, [username]);
-
-  const portfolioValue = portfolio.reduce((sum, stock) => sum + stock.current_value, 0).toFixed(2);
 
   const chartData = {
     labels: portfolio.map((stock) => stock.ticker),
@@ -82,11 +86,19 @@ const Portfolio = () => {
         </div>
 
         <div className="stat portfolio-value">
-          <strong>Portfolio Value:</strong> ${portfolioValue}
+          <strong>Portfolio Value (Cash Account):</strong>{" "}
+          {cashAccount && typeof cashAccount.balance === "number"
+            ? `$${cashAccount.balance.toFixed(2)}`
+            : "Loading..."}
         </div>
+
         <div className="stat yield-ratio">
-          <strong>Yield Cost Ratio:</strong> {portfolio.length > 0 ? (portfolioValue / portfolio.length).toFixed(2) : "0.00"}
+          <strong>Yield Cost Ratio:</strong>{" "}
+          {portfolio.length > 0 && cashAccount && typeof cashAccount.balance === "number"
+            ? (cashAccount.balance / portfolio.length).toFixed(2)
+            : "0.00"}
         </div>
+
         <div className="stat total-dividends">
           <strong>Total Annual Dividends:</strong> $0.00
         </div>
