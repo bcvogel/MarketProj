@@ -7,11 +7,17 @@ from models import Stock, User as DBUser, Transaction, Portfolio, CashAccount
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, time, timedelta
+from contextlib import asynccontextmanager
 import asyncio
 from passlib.hash import bcrypt
 from jose import JWTError, jwt
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    asyncio.create_task(update_stock_prices())
+    yield
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,6 +84,72 @@ class CashTransaction(BaseModel):
     username: str
     amount: float
 
+class MarketToggleRequest(BaseModel):
+    status: bool  # True = open, False = closed
+
+class HolidayRequest(BaseModel):
+    date: str  # Format: "YYYY-MM-DD"
+
+# Helper to check if current user is admin
+def require_admin(user: DBUser):
+    if user.role != "Administrator":
+        raise HTTPException(status_code=403, detail="Admin privileges required.")
+
+@app.post("/market/toggle")
+def toggle_market(req: MarketToggleRequest, current_user: DBUser = Depends(get_current_user)):
+    require_admin(current_user)
+    market_schedule["is_open"] = req.status
+    return {"message": f"Market is now {'open' if req.status else 'closed'}."}
+
+@app.post("/market/hours")
+def set_market_hours(hours: MarketHoursRequest, current_user: DBUser = Depends(get_current_user)):
+    require_admin(current_user)
+    try:
+        open_time = datetime.strptime(hours.open_time, "%H:%M").time()
+        close_time = datetime.strptime(hours.close_time, "%H:%M").time()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid time format (use HH:MM).")
+    market_schedule["open_time"] = open_time
+    market_schedule["close_time"] = close_time
+    return {"message": "Market hours updated successfully."}
+
+@app.post("/market/holiday")
+def add_market_holiday(holiday: HolidayRequest, current_user: DBUser = Depends(get_current_user)):
+    require_admin(current_user)
+    try:
+        holiday_date = datetime.strptime(holiday.date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format (use YYYY-MM-DD).")
+    market_schedule["holidays"].add(holiday_date)
+    return {"message": f"{holiday.date} added as a market holiday."}
+
+@app.post("/stocks")
+def create_stock(stock: CreateStockRequest, current_user: DBUser = Depends(get_current_user)):
+    require_admin(current_user)
+    db = SessionLocal()
+
+    existing = db.query(Stock).filter_by(ticker=stock.ticker).first()
+    if existing:
+        db.close()
+        raise HTTPException(status_code=400, detail="Ticker already exists.")
+
+    new_stock = Stock(
+        company_name=stock.company_name,
+        ticker=stock.ticker,
+        volume=stock.volume,
+        initial_price=stock.initial_price,
+        current_price=stock.initial_price,
+        daily_high=stock.initial_price,
+        daily_low=stock.initial_price,
+        market_cap=stock.volume * stock.initial_price
+    )
+    db.add(new_stock)
+    db.commit()
+    db.refresh(new_stock)
+    db.close()
+
+    return {"message": f"Stock '{new_stock.ticker}' created successfully."}
+
 @app.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
     db = SessionLocal()
@@ -114,6 +186,76 @@ def register_user(user: UserRegister):
     db.close()
     return {"message": f"User '{user.username}' registered successfully."}
 
+@app.post("/buy")
+def buy_stock(txn: StockTransaction, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter_by(username=txn.username).first()
+    stock = db.query(Stock).filter_by(ticker=txn.stock).first()
+    if not user or not stock:
+        raise HTTPException(status_code=404, detail="User or Stock not found")
+
+    cost = stock.current_price * txn.amount
+    if user.cash_account.balance < cost:
+        raise HTTPException(status_code=400, detail="Insufficient funds")
+
+    user.cash_account.balance -= cost
+
+    portfolio = db.query(Portfolio).filter_by(user_id=user.id, stock_id=stock.id).first()
+    if portfolio:
+        portfolio.quantity += txn.amount
+        portfolio.current_value += cost
+    else:
+        new_entry = Portfolio(
+            user_id=user.id,
+            stock_id=stock.id,
+            quantity=txn.amount,
+            purchase_price=stock.current_price,
+            current_value=cost
+        )
+        db.add(new_entry)
+
+    txn_record = Transaction(
+        user_id=user.id,
+        stock_id=stock.id,
+        transaction_type="Buy",
+        quantity=txn.amount,
+        price_per_share=stock.current_price,
+        total_amount=cost
+    )
+    db.add(txn_record)
+    db.commit()
+    return {"message": f"Bought {txn.amount} shares of {txn.stock}"}
+
+@app.post("/sell")
+def sell_stock(txn: StockTransaction, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter_by(username=txn.username).first()
+    stock = db.query(Stock).filter_by(ticker=txn.stock).first()
+    if not user or not stock:
+        raise HTTPException(status_code=404, detail="User or Stock not found")
+
+    portfolio = db.query(Portfolio).filter_by(user_id=user.id, stock_id=stock.id).first()
+    if not portfolio or portfolio.quantity < txn.amount:
+        raise HTTPException(status_code=400, detail="Not enough shares to sell")
+
+    proceeds = stock.current_price * txn.amount
+    portfolio.quantity -= txn.amount
+    portfolio.current_value -= proceeds
+    user.cash_account.balance += proceeds
+
+    if portfolio.quantity == 0:
+        db.delete(portfolio)
+
+    txn_record = Transaction(
+        user_id=user.id,
+        stock_id=stock.id,
+        transaction_type="Sell",
+        quantity=txn.amount,
+        price_per_share=stock.current_price,
+        total_amount=proceeds
+    )
+    db.add(txn_record)
+    db.commit()
+    return {"message": f"Sold {txn.amount} shares of {txn.stock}"}
+
 @app.get("/users/me")
 def read_users_me(current_user: DBUser = Depends(get_current_user)):
     if not current_user.cash_account:
@@ -132,8 +274,11 @@ def get_all_stocks(db: Session = Depends(get_db)):
             "company_name": s.company_name,
             "ticker": s.ticker,
             "current_price": s.current_price,
+            "volume": s.volume,
+            "initial_price": s.initial_price,
             "daily_high": s.daily_high,
-            "daily_low": s.daily_low
+            "daily_low": s.daily_low,
+            "market_cap": s.volume * s.current_price if s.volume and s.current_price else None
         } for s in stocks
     ]
 
@@ -147,7 +292,8 @@ def get_account(username: str, db: Session = Depends(get_db)):
         "username": user.username,
         "email": user.email,
         "balance": round(user.cash_account.balance, 2) if user.cash_account else 0.0,
-        "role": user.role
+        "role": user.role,
+        "created_at": user.created_at.isoformat()
     }
 
 @app.get("/portfolio/{username}")
@@ -155,14 +301,22 @@ def get_portfolio(username: str, db: Session = Depends(get_db)):
     user = db.query(DBUser).filter_by(username=username).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    portfolio = db.query(Portfolio).filter_by(user_id=user.id).all()
+
+    portfolio = (
+        db.query(Portfolio, Stock)
+        .join(Stock, Portfolio.stock_id == Stock.id)
+        .filter(Portfolio.user_id == user.id)
+        .all()
+    )
+
     return [
         {
-            "stock_id": p.stock_id,
+            "stock_name": stock.company_name,
+            "ticker": stock.ticker,
             "quantity": p.quantity,
             "purchase_price": p.purchase_price,
             "current_value": p.current_value
-        } for p in portfolio
+        } for p, stock in portfolio
     ]
 
 @app.get("/cash/{username}")
@@ -177,6 +331,32 @@ def get_cash_balance(username: str):
     if not cash:
         return {"balance": 0.0}
     return {"balance": round(cash.balance, 2)}
+
+@app.get("/transactions/{username}")
+def get_user_transactions(username: str, db: Session = Depends(get_db)):
+    user = db.query(DBUser).filter_by(username=username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    transactions = (
+        db.query(Transaction, Stock)
+        .join(Stock, Stock.id == Transaction.stock_id)
+        .filter(Transaction.user_id == user.id)
+        .all()
+    )
+
+    return [
+        {
+            "id": t.id,
+            "transaction_type": t.transaction_type,
+            "quantity": t.quantity,
+            "price_per_share": t.price_per_share,
+            "total_amount": t.total_amount,
+            "timestamp": t.timestamp,
+            "stock_ticker": s.ticker,
+        }
+        for t, s in transactions
+    ]
 
 @app.post("/cash/deposit")
 def deposit_cash(txn: CashTransaction):
@@ -209,7 +389,3 @@ def withdraw_cash(txn: CashTransaction):
     return {"message": f"${txn.amount:.2f} withdrawn successfully"}
 
 from tasks import update_stock_prices
-
-@app.on_event("startup")
-async def start_background_tasks():
-    asyncio.create_task(update_stock_prices())

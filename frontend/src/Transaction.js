@@ -7,14 +7,20 @@ const Transaction = () => {
   const [amount, setAmount] = useState("");
   const [cashBalance, setCashBalance] = useState(0);
   const username = localStorage.getItem("username");
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    fetchCashBalance();
-  }, []);
+    if (username) {
+      fetchCashBalance();
+    }
+  }, [username]);
 
   const fetchCashBalance = async () => {
+    if (!username) return;
     try {
-      const res = await axios.get(`http://localhost:8000/cash/${username}`);
+      const res = await axios.get(`http://localhost:8000/cash/${username}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setCashBalance(res.data.balance);
     } catch (err) {
       console.error("Failed to fetch cash balance", err);
@@ -22,11 +28,18 @@ const Transaction = () => {
   };
 
   const deposit = async () => {
+    if (!username || !amount) return;
     try {
-      await axios.post("http://localhost:8000/cash/deposit", {
-        username,
-        amount: parseFloat(amount),
-      });
+      await axios.post(
+        "http://localhost:8000/cash/deposit",
+        {
+          username,
+          amount: parseFloat(amount),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       fetchCashBalance();
       setAmount("");
     } catch (err) {
@@ -35,11 +48,18 @@ const Transaction = () => {
   };
 
   const withdraw = async () => {
+    if (!username || !amount) return;
     try {
-      await axios.post("http://localhost:8000/cash/withdraw", {
-        username,
-        amount: parseFloat(amount),
-      });
+      await axios.post(
+        "http://localhost:8000/cash/withdraw",
+        {
+          username,
+          amount: parseFloat(amount),
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       fetchCashBalance();
       setAmount("");
     } catch (err) {
@@ -50,12 +70,15 @@ const Transaction = () => {
   return (
     <div className="transaction-container">
       <div className="transaction-body">
-        {/* Left Form Section */}
         <div className="left-box">
           <h2>Transaction:</h2>
           <div className="transaction-box">
             <label>Cash Account Balance:</label>
-            <input type="text" value={`$${cashBalance.toFixed(2)}`} disabled />
+            <input
+              type="text"
+              value={`$${cashBalance.toFixed(2)}`}
+              disabled
+            />
             <label>Enter Amount:</label>
             <input
               type="number"
@@ -74,7 +97,6 @@ const Transaction = () => {
           </div>
         </div>
 
-        {/* Right History Section */}
         <div className="history-box">
           <div className="history-header">
             <h3>History</h3>

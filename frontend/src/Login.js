@@ -29,6 +29,19 @@ const Login = () => {
       if (data.access_token) {
         localStorage.setItem("token", data.access_token);
         localStorage.setItem("username", username);
+
+        // Fetch user info to get role
+        const userRes = await fetch(`http://localhost:8000/account/${username}`, {
+          headers: {
+            Authorization: `Bearer ${data.access_token}`,
+          },
+        });
+
+        if (userRes.ok) {
+          const userInfo = await userRes.json();
+          localStorage.setItem("role", userInfo.role); // Save role
+        }
+
         setLoginStatus("");
         navigate("/dashboard");
       } else {

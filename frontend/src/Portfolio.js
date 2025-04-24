@@ -3,6 +3,7 @@ import { Line } from "react-chartjs-2";
 import Chart from "chart.js/auto";
 import "./main.css";
 import "./Portfolio.css";
+import { getAuthHeaders } from "./api";
 
 const Portfolio = () => {
   const [portfolio, setPortfolio] = useState([]);
@@ -11,7 +12,9 @@ const Portfolio = () => {
   useEffect(() => {
     const fetchPortfolio = async () => {
       try {
-        const res = await fetch(`http://localhost:8000/portfolio/${username}`);
+        const res = await fetch(`http://localhost:8000/portfolio/${username}`, {
+          headers: getAuthHeaders()
+        });
         if (!res.ok) {
           throw new Error("Failed to fetch portfolio");
         }
@@ -94,12 +97,11 @@ const Portfolio = () => {
           <strong>Unrealized Gains:</strong> $0.00
         </div>
 
-        <div className="bank-info">
-          <p><strong>Bank Information:</strong></p>
-          <p>Account Number:</p>
-          <input type="text" />
-          <p>Routing Number:</p>
-          <input type="text" />
+        {/* Portfolio Summary Card */}
+        <div className="info-card">
+          <p><strong>Total Portfolio Value:</strong> ${portfolioValue}</p>
+          <p><strong>Total Stocks Held:</strong> {portfolio.length}</p>
+          <p><strong>Average Stock Value:</strong> ${portfolio.length > 0 ? (portfolioValue / portfolio.length).toFixed(2) : "0.00"}</p>
         </div>
       </div>
     </div>
