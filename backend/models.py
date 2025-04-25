@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, CheckConstraint
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, CheckConstraint, Boolean, Text
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -78,3 +78,12 @@ class CashAccount(Base):
     last_updated = Column(DateTime, default=datetime.datetime.utcnow)
 
     user = relationship("User", back_populates="cash_account")
+
+class MarketSchedule(Base):
+    __tablename__ = "market_schedule"
+
+    id = Column(Integer, primary_key=True, index=True)
+    is_open = Column(Boolean, default=True, nullable=False)  # Admin toggle
+    open_time = Column(String, default="09:30", nullable=False)  # Stored as HH:MM
+    close_time = Column(String, default="16:00", nullable=False)
+    holidays = Column(Text, default="", nullable=True)  # Comma-separated YYYY-MM-DD strings

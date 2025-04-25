@@ -15,6 +15,8 @@ const Dashboard = () => {
   const [stockPrice, setStockPrice] = useState(null);
   const [filterRange, setFilterRange] = useState("1 Week");
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
+  const [account, setAccount] = useState(null);
+  const [marketSchedule, setMarketSchedule] = useState(null);
 
   const username = localStorage.getItem("username");
   const token = localStorage.getItem("token");
@@ -37,7 +39,10 @@ const Dashboard = () => {
       .get(`http://localhost:8000/account/${username}`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      .then((res) => setCashAccount(res.data))
+      .then((res) => {
+        setCashAccount(res.data);
+        setAccount(res.data);
+      })
       .catch(console.error);
   };
 
@@ -54,6 +59,13 @@ const Dashboard = () => {
     axios
       .get("http://localhost:8000/stocks")
       .then((res) => setStocks(res.data))
+      .catch(console.error);
+  };
+
+  const fetchMarketSchedule = () => {
+    axios
+      .get("http://localhost:8000/market/schedule")
+      .then((res) => setMarketSchedule(res.data))
       .catch(console.error);
   };
 
@@ -88,6 +100,7 @@ const Dashboard = () => {
       fetchAccountInfo();
       fetchPortfolio();
       fetchStocks();
+      fetchMarketSchedule();
     }
   }, [username]);
 
@@ -155,23 +168,57 @@ const Dashboard = () => {
 
   const leastExpensiveStocks = [...stocks].sort((a, b) => a.current_price - b.current_price).slice(0, 3);
 
+  const renderMarketStatusCard = () => {
+    if (!marketSchedule) return null;
+
+    const now = new Date();
+    const day = now.getDay();
+    const time = now.getHours() + now.getMinutes() / 60;
+    const open = parseFloat(marketSchedule.open_time.split(":")[0]) + parseFloat(marketSchedule.open_time.split(":")[1]) / 60;
+    const close = parseFloat(marketSchedule.close_time.split(":")[0]) + parseFloat(marketSchedule.close_time.split(":")[1]) / 60;
+    const today = now.toISOString().split("T")[0];
+    const isOpen = marketSchedule.is_open && day < 6 && !marketSchedule.holidays.includes(today) && time >= open && time <= close;
+
+    return (
+      <div className="dashboard-chart-container info-card">
+        <h3 style={{ textAlign: "center" }}>
+          The Market is Currently: {isOpen ? "🟢 Open" : "🔴 Closed"}
+        </h3>
+        <p style={{ textAlign: "center", marginTop: "0.5rem" }}>
+          {isOpen ? "Market is open during regular trading hours." : "Market is currently closed."}
+        </p>
+        <table className="market-hours-table" style={{ width: "100%", marginTop: "1rem" }}>
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Status</th>
+              <th>Hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((dayName, i) => (
+              <tr key={dayName}>
+                <td>{dayName}</td>
+                <td>{i < 5 ? "Open" : "Closed"}</td>
+                <td>{i < 5 ? `${marketSchedule.open_time} - ${marketSchedule.close_time}` : "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h2>Welcome to your dashboard!</h2>
+        {account?.full_name && <h3>{account.full_name}!</h3>}
       </div>
 
       <div className="dashboard-body three-column-layout">
         <div className="dashboard-left">
-          <h2>Stock Name:</h2>
-          <div className="dashboard-chart-container">
-            <button className="arrow-button">←</button>
-            <div className="chart-box">
-              <p style={{ textAlign: "center", fontWeight: "600" }}>Stock Price Over Time</p>
-              <Line data={chartData} options={{ responsive: true }} />
-            </div>
-            <button className="arrow-button">→</button>
-          </div>
+          {renderMarketStatusCard()}
 
           <div className="popular-stocks-box">
             <h4>Least Expensive Stocks:</h4>
@@ -221,7 +268,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="available-stocks-box">
+          <div className="info-card available-stocks-box">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h4>Available Stocks:</h4>
               <button className="refresh-button" onClick={fetchStocks}>🔄 Refresh Prices</button>
@@ -258,7 +305,10 @@ const Dashboard = () => {
         <div className="dashboard-center">
           <div className="dashboard-widgets">
             <div className="widget">
-              Your Wallet: ${cashAccount ? cashAccount.balance.toFixed(2) : "0.00"}
+              <p>{account?.full_name ? `${account.full_name.split(" ")[0]}'s Wallet:` : "Wallet:"}</p>
+              <p style={{ color: "green", fontWeight: "bold", fontSize: "1.2rem" }}>
+                ${cashAccount ? cashAccount.balance.toFixed(2) : "0.00"}
+              </p>
             </div>
             <div className="widget">
               <p>Portfolio Performance:</p>
@@ -308,7 +358,6 @@ const Dashboard = () => {
             </ul>
           </div>
         </div>
-
       </div>
     </div>
   );

@@ -34,37 +34,23 @@ const Transaction = () => {
       const res = await axios.get("http://localhost:8000/transactions", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setHistory(res.data.slice(0, 5)); // Show only the latest 5
+      setHistory(res.data.slice(0, 5));
     } catch (err) {
       console.error("Failed to fetch transaction history", err);
     }
   };
 
-  const deposit = async () => {
+  const confirmAction = async (actionType) => {
     if (!username || !amount) return;
-    try {
-      await axios.post(
-        "http://localhost:8000/cash/deposit",
-        {
-          username,
-          amount: parseFloat(amount),
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      fetchCashBalance();
-      setAmount("");
-    } catch (err) {
-      console.error("Deposit failed", err);
-    }
-  };
+    const action = actionType === "deposit" ? "deposit into" : "send to";
+    const confirmed = window.confirm(
+      `Are you sure you want to ${action} your connected bank account $${parseFloat(amount).toFixed(2)}?`
+    );
+    if (!confirmed) return;
 
-  const withdraw = async () => {
-    if (!username || !amount) return;
     try {
       await axios.post(
-        "http://localhost:8000/cash/withdraw",
+        `http://localhost:8000/cash/${actionType}`,
         {
           username,
           amount: parseFloat(amount),
@@ -76,7 +62,7 @@ const Transaction = () => {
       fetchCashBalance();
       setAmount("");
     } catch (err) {
-      console.error("Withdraw failed", err);
+      console.error(`${actionType.charAt(0).toUpperCase() + actionType.slice(1)} failed`, err);
     }
   };
 
@@ -101,8 +87,8 @@ const Transaction = () => {
               onChange={(e) => setAmount(e.target.value)}
             />
             <div className="stock-buttons">
-              <button className="buy-button" onClick={deposit}>Deposit</button>
-              <button className="sell-button" onClick={withdraw}>Withdraw</button>
+              <button className="buy-button" onClick={() => confirmAction("deposit")}>Deposit</button>
+              <button className="sell-button" onClick={() => confirmAction("withdraw")}>Withdraw</button>
             </div>
           </div>
         </div>

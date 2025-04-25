@@ -3,10 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from database import get_db, SessionLocal
-from models import Stock, User as DBUser, Transaction, Portfolio, CashAccount
+from models import Stock, User as DBUser, Transaction, Portfolio, CashAccount, MarketSchedule
 from pydantic import BaseModel
 from typing import List
-from datetime import datetime, time, timedelta
+from datetime import datetime, timedelta
+from pytz import timezone, utc
 from contextlib import asynccontextmanager
 import asyncio
 from passlib.hash import bcrypt
@@ -52,12 +53,43 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-market_schedule = {
-    "open_time": time(9, 30),
-    "close_time": time(16, 0),
-    "holidays": set(),
-    "is_open": True
-}
+from datetime import datetime, time
+from pytz import timezone, utc
+from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from models import MarketSchedule
+
+def check_market_open(db: Session):
+    local_tz = timezone("America/New_York")
+    now = datetime.now(utc).astimezone(local_tz)
+
+    current_time = now.time()
+    today = now.date().strftime("%Y-%m-%d")
+
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=503, detail="Market schedule not configured.")
+
+    # Convert string times if necessary
+    def parse_time(value):
+        return datetime.strptime(value, "%H:%M" if len(value) == 5 else "%H:%M:%S").time() if isinstance(value, str) else value
+
+    open_time = parse_time(schedule.open_time)
+    close_time = parse_time(schedule.close_time)
+    holiday_list = set(schedule.holidays.split(",")) if schedule.holidays else set()
+
+    print(f"[Market Check] Now: {current_time}, Open: {open_time}, Close: {close_time}, Today: {today}")
+    print(f"[Market Check] is_open: {schedule.is_open}, Holidays: {holiday_list}")
+    print(f"Types: open_time={type(open_time)}, close_time={type(close_time)}, now={type(current_time)}")
+
+    if not schedule.is_open:
+        raise HTTPException(status_code=403, detail="Market is currently closed by administrator.")
+    if now.weekday() >= 5:
+        raise HTTPException(status_code=403, detail="Market is closed on weekends.")
+    if today in holiday_list:
+        raise HTTPException(status_code=403, detail="Market is closed for a holiday.")
+    if not (open_time <= current_time <= close_time):
+        raise HTTPException(status_code=403, detail="Market is currently closed (outside market hours).")
 
 class StockTransaction(BaseModel):
     stock: str
@@ -85,42 +117,67 @@ class CashTransaction(BaseModel):
     amount: float
 
 class MarketToggleRequest(BaseModel):
-    status: bool  # True = open, False = closed
+    status: bool
 
 class HolidayRequest(BaseModel):
-    date: str  # Format: "YYYY-MM-DD"
+    date: str
 
-# Helper to check if current user is admin
 def require_admin(user: DBUser):
     if user.role != "Administrator":
         raise HTTPException(status_code=403, detail="Admin privileges required.")
 
 @app.post("/market/toggle")
-def toggle_market(req: MarketToggleRequest, current_user: DBUser = Depends(get_current_user)):
+def toggle_market(req: MarketToggleRequest, current_user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
     require_admin(current_user)
-    market_schedule["is_open"] = req.status
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
+    schedule.is_open = req.status
+    db.commit()
     return {"message": f"Market is now {'open' if req.status else 'closed'}."}
 
+@app.get("/market/schedule")
+def get_market_schedule(db: Session = Depends(get_db)):
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
+    return {
+        "is_open": schedule.is_open,
+        "open_time": schedule.open_time,
+        "close_time": schedule.close_time,
+        "holidays": sorted(schedule.holidays.split(",")) if schedule.holidays else []
+    }
+
 @app.post("/market/hours")
-def set_market_hours(hours: MarketHoursRequest, current_user: DBUser = Depends(get_current_user)):
+def set_market_hours(hours: MarketHoursRequest, current_user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
     require_admin(current_user)
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
     try:
-        open_time = datetime.strptime(hours.open_time, "%H:%M").time()
-        close_time = datetime.strptime(hours.close_time, "%H:%M").time()
+        datetime.strptime(hours.open_time, "%H:%M")
+        datetime.strptime(hours.close_time, "%H:%M")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid time format (use HH:MM).")
-    market_schedule["open_time"] = open_time
-    market_schedule["close_time"] = close_time
+    schedule.open_time = hours.open_time
+    schedule.close_time = hours.close_time
+    db.commit()
     return {"message": "Market hours updated successfully."}
 
 @app.post("/market/holiday")
-def add_market_holiday(holiday: HolidayRequest, current_user: DBUser = Depends(get_current_user)):
+def add_market_holiday(holiday: HolidayRequest, current_user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
     require_admin(current_user)
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
     try:
-        holiday_date = datetime.strptime(holiday.date, "%Y-%m-%d").date()
+        datetime.strptime(holiday.date, "%Y-%m-%d")
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format (use YYYY-MM-DD).")
-    market_schedule["holidays"].add(holiday_date)
+    holidays = set(schedule.holidays.split(",")) if schedule.holidays else set()
+    holidays.add(holiday.date)
+    schedule.holidays = ",".join(sorted(holidays))
+    db.commit()
     return {"message": f"{holiday.date} added as a market holiday."}
 
 @app.post("/stocks")
@@ -188,6 +245,7 @@ def register_user(user: UserRegister):
 
 @app.post("/buy")
 def buy_stock(txn: StockTransaction, db: Session = Depends(get_db)):
+    check_market_open(db)
     user = db.query(DBUser).filter_by(username=txn.username).first()
     stock = db.query(Stock).filter_by(ticker=txn.stock).first()
     if not user or not stock:
@@ -227,6 +285,7 @@ def buy_stock(txn: StockTransaction, db: Session = Depends(get_db)):
 
 @app.post("/sell")
 def sell_stock(txn: StockTransaction, db: Session = Depends(get_db)):
+    check_market_open(db)
     user = db.query(DBUser).filter_by(username=txn.username).first()
     stock = db.query(Stock).filter_by(ticker=txn.stock).first()
     if not user or not stock:

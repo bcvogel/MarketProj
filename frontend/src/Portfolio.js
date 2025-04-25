@@ -45,6 +45,13 @@ const Portfolio = () => {
     0
   );
 
+  const totalPurchaseValue = portfolio.reduce(
+    (sum, stock) => sum + ((stock.purchase_price || 0) * (stock.quantity || 0)),
+    0
+  );
+
+  const unrealizedGains = portfolioValue - totalPurchaseValue;
+
   const chartData = {
     labels: portfolio.map((stock) => stock.ticker),
     datasets: [
@@ -98,7 +105,7 @@ const Portfolio = () => {
         </div>
 
         <div className="stat portfolio-value">
-          <strong>Portfolio Value (Cash Account):</strong>{" "}
+          <strong>Cash Available to Spend:</strong>{" "}
           {cashAccount && typeof cashAccount.balance === "number"
             ? `$${cashAccount.balance.toFixed(2)}`
             : "Loading..."}
@@ -106,16 +113,14 @@ const Portfolio = () => {
 
         <div className="stat yield-ratio">
           <strong>Yield Cost Ratio:</strong>{" "}
-          {portfolio.length > 0 && cashAccount && typeof cashAccount.balance === "number"
-            ? (cashAccount.balance / portfolio.length).toFixed(2)
-            : "0.00"}
+          {totalPurchaseValue > 0 ? (portfolioValue / totalPurchaseValue).toFixed(2) : "0.00"}
+          <p style={{ fontSize: "0.85rem", color: "gray" }}>
+            Ratio of current value to the original purchase value of your stocks.
+          </p>
         </div>
 
-        <div className="stat total-dividends">
-          <strong>Total Annual Dividends:</strong> $0.00
-        </div>
         <div className="stat unrealized-gains">
-          <strong>Unrealized Gains:</strong> $0.00
+          <strong>Unrealized Gains:</strong> ${unrealizedGains.toFixed(2)}
         </div>
 
         <div className="info-card">

@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session 
 from database import SessionLocal, engine
-from models import Base, User, Stock, Portfolio, Transaction, CashAccount
+from models import Base, User, Stock, Portfolio, Transaction, CashAccount, MarketSchedule
 from passlib.hash import bcrypt
 
 # Create tables if they don't exist
@@ -78,6 +78,16 @@ def seed_data():
                 volume=volume
             )
             db.add(stock)
+    db.commit()
+
+    if not db.query(MarketSchedule).first():
+        default_schedule = MarketSchedule(
+        is_open=True,
+        open_time="09:30",
+        close_time="16:00",
+        holidays="2025-12-25,2025-07-04"
+    )
+    db.add(default_schedule)
     db.commit()
 
     # Step 3: Add Broc's portfolio and transactions
