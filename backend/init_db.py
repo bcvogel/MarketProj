@@ -1,10 +1,15 @@
 from sqlalchemy.orm import Session 
 from database import SessionLocal, engine
+from sqlalchemy import text
 from models import Base, User, Stock, Portfolio, Transaction, CashAccount, MarketSchedule
 from passlib.hash import bcrypt
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)
+
+with SessionLocal() as db:
+    db.execute(text("ALTER TABLE market_schedule ADD COLUMN IF NOT EXISTS force_open BOOLEAN DEFAULT FALSE;"))
+    db.commit()
 
 def seed_data():
     db: Session = SessionLocal()

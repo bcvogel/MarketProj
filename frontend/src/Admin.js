@@ -44,6 +44,38 @@ const Admin = () => {
     }
   };
 
+  const forceMarketOpen = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/market/force-open", {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json();
+      setMessage(data.message);
+    } catch (err) {
+      setMessage("Error forcing market open.");
+    }
+  };
+
+  const forceMarketClose = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/market/force-close", {
+        method: "POST",
+        headers: {
+          ...getAuthHeaders(),
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await res.json();
+      setMessage(data.message);
+    } catch (err) {
+      setMessage("Error forcing market close.");
+    }
+  };
+  
   const updateMarketHours = async () => {
     try {
       const res = await fetch("http://localhost:8000/market/hours", {
@@ -100,16 +132,24 @@ const Admin = () => {
   };
 
   return (
-    <div className="admin-container">
-      <h2>Admin Panel</h2>
-      {message && <p className="admin-message">{message}</p>}
+    
+    <div className="admin-container"> 
+    <h2>Admin Panel</h2>
+    {message && <p className="admin-message">{message}</p>}
 
-      <div className="admin-section">
-        <h3>Market Toggle</h3>
-        <button onClick={toggleMarket}>
-          {marketStatus ? "Close Market" : "Open Market"}
-        </button>
-      </div>
+    <div className="admin-section">
+      <h3>Market Toggle</h3>
+      <button onClick={toggleMarket}>
+        {marketStatus ? "Close Market" : "Open Market"}
+      </button>
+      <button onClick={forceMarketOpen}>
+        Force Open Market (Override)
+      </button>
+      <button onClick={forceMarketClose}>
+        Force Close Market (Reset)
+      </button>
+
+    </div>
 
       <div className="admin-section">
         <h3>Market Hours</h3>

@@ -42,7 +42,7 @@ const Transaction = () => {
 
   const confirmAction = async (actionType) => {
     if (!username || !amount) return;
-    const action = actionType === "deposit" ? "deposit into" : "send to";
+    const action = actionType === "deposit" ? "deposit from" : "send to";
     const confirmed = window.confirm(
       `Are you sure you want to ${action} your connected bank account $${parseFloat(amount).toFixed(2)}?`
     );

@@ -70,7 +70,12 @@ def check_market_open(db: Session):
     if not schedule:
         raise HTTPException(status_code=503, detail="Market schedule not configured.")
 
-    # Convert string times if necessary
+    # **NEW!** Check manual override first
+    if schedule.force_open:
+        print("[Market Check] Market manually forced open.")
+        return  # Market is open no matter what
+
+    # Continue normal checks...
     def parse_time(value):
         return datetime.strptime(value, "%H:%M" if len(value) == 5 else "%H:%M:%S").time() if isinstance(value, str) else value
 
@@ -135,6 +140,26 @@ def toggle_market(req: MarketToggleRequest, current_user: DBUser = Depends(get_c
     schedule.is_open = req.status
     db.commit()
     return {"message": f"Market is now {'open' if req.status else 'closed'}."}
+
+@app.post("/market/force-open")
+def force_open_market(current_user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_admin(current_user)
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
+    schedule.force_open = True
+    db.commit()
+    return {"message": "Market manually forced open."}
+
+@app.post("/market/force-close")
+def force_close_market(current_user: DBUser = Depends(get_current_user), db: Session = Depends(get_db)):
+    require_admin(current_user)
+    schedule = db.query(MarketSchedule).first()
+    if not schedule:
+        raise HTTPException(status_code=404, detail="Market schedule not found")
+    schedule.force_open = False
+    db.commit()
+    return {"message": "Market manual override turned OFF. Market now follows normal schedule."}
 
 @app.get("/market/schedule")
 def get_market_schedule(db: Session = Depends(get_db)):

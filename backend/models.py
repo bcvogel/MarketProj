@@ -87,3 +87,5 @@ class MarketSchedule(Base):
     open_time = Column(String, default="09:30", nullable=False)  # Stored as HH:MM
     close_time = Column(String, default="16:00", nullable=False)
     holidays = Column(Text, default="", nullable=True)  # Comma-separated YYYY-MM-DD strings
+    force_open = Column(Boolean, default=False, nullable=False)  # Manual override flag
+
