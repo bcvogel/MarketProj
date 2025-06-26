@@ -38,8 +38,8 @@
 
 ## 📄 Documents
 
-- [Download My Resume](https://github.com/bcvogel/bcvogel/raw/main/Broc_Vogel_IT_Resume.pdf)
-- [View My Unofficial Transcript (ASU)](https://github.com/bcvogel/bcvogel/raw/main/ASUtranscript_noID.pdf)
+- [Download My Resume](https://github.com/bcvogel/bcvogel/blob/main/Broc_Vogel_IT_Resume.pdf)
+- [View My Unofficial Transcript (ASU)](https://github.com/bcvogel/bcvogel/blob/main/ASUtranscript_noID.pdf)
 
 ---
 
