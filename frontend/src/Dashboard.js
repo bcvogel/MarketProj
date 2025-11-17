@@ -17,6 +17,7 @@ const Dashboard = () => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
   const [account, setAccount] = useState(null);
   const [marketSchedule, setMarketSchedule] = useState(null);
+  const [showAdminToast, setShowAdminToast] = useState(false);
 
   const username = localStorage.getItem("username");
   const token = localStorage.getItem("token");
@@ -105,6 +106,14 @@ const Dashboard = () => {
   }, [username]);
 
   useEffect(() => {
+  if (marketSchedule?.force_open) {
+    setShowAdminToast(true);
+  } else {
+    setShowAdminToast(false);
+  }
+}, [marketSchedule]);
+
+  useEffect(() => {
     setChartData(generateRandomChartData({ "1 Week": 7, "3 Months": 90, "6 Months": 180 }[filterRange]));
   }, [filterRange]);
 
@@ -168,49 +177,94 @@ const Dashboard = () => {
 
   const leastExpensiveStocks = [...stocks].sort((a, b) => a.current_price - b.current_price).slice(0, 3);
 
-  const renderMarketStatusCard = () => {
-    if (!marketSchedule) return null;
+const renderMarketStatusCard = () => {
+  if (!marketSchedule) return null;
 
-    const now = new Date();
-    const day = now.getDay();
-    const time = now.getHours() + now.getMinutes() / 60;
-    const open = parseFloat(marketSchedule.open_time.split(":")[0]) + parseFloat(marketSchedule.open_time.split(":")[1]) / 60;
-    const close = parseFloat(marketSchedule.close_time.split(":")[0]) + parseFloat(marketSchedule.close_time.split(":")[1]) / 60;
-    const today = now.toISOString().split("T")[0];
-    const isOpen = marketSchedule.is_open && day < 6 && !marketSchedule.holidays.includes(today) && time >= open && time <= close;
+  const now = new Date();
+  const jsDay = now.getDay(); // 0=Sunday, 6=Saturday in JS
+  const time = now.getHours() + now.getMinutes() / 60;
+  const [openHour, openMin] = marketSchedule.open_time.split(":").map(Number);
+  const [closeHour, closeMin] = marketSchedule.close_time.split(":").map(Number);
 
-    return (
-      <div className="dashboard-chart-container info-card">
-        <h3 style={{ textAlign: "center" }}>
-          The Market is Currently: {isOpen ? "🟢 Open" : "🔴 Closed"}
-        </h3>
-        <p style={{ textAlign: "center", marginTop: "0.5rem" }}>
-          {isOpen ? "Market is open during regular trading hours." : "Market is currently closed."}
-        </p>
-        <table className="market-hours-table" style={{ width: "100%", marginTop: "1rem" }}>
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Status</th>
-              <th>Hours</th>
-            </tr>
-          </thead>
-          <tbody>
-            {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((dayName, i) => (
-              <tr key={dayName}>
-                <td>{dayName}</td>
-                <td>{i < 5 ? "Open" : "Closed"}</td>
-                <td>{i < 5 ? `${marketSchedule.open_time} - ${marketSchedule.close_time}` : "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
+  const open = openHour + openMin / 60;
+  const close = closeHour + closeMin / 60;
+
+  const today = now.toISOString().split("T")[0];
+
+  // holidays stored as "YYYY-MM-DD,YYYY-MM-DD"
+  const rawHolidays = marketSchedule.holidays;
+  let holidayList = [];
+
+  if (Array.isArray(rawHolidays)) {
+    holidayList = rawHolidays
+      .map((h) => (typeof h === "string" ? h.trim() : ""))
+      .filter(Boolean);
+  } else if (typeof rawHolidays === "string" && rawHolidays.trim().length > 0) {
+    holidayList = rawHolidays
+      .split(",")
+      .map((h) => h.trim())
+      .filter(Boolean);
+  } else {
+    holidayList = [];
+  }
+
+  const isWeekend = jsDay === 0 || jsDay === 6; // Sunday or Saturday
+  const isHoliday = holidayList.includes(today);
+  const isWithinHours = time >= open && time <= close;
+
+  // Match backend logic:
+  // - force_open overrides everything
+  // - otherwise must be is_open, not weekend, not holiday, within hours
+  const isOpen =
+    marketSchedule.force_open ||
+    (marketSchedule.is_open && !isWeekend && !isHoliday && isWithinHours);
 
   return (
-    <div className="dashboard-container">
+    <div className="dashboard-chart-container info-card">
+      <h3 style={{ textAlign: "center" }}>
+        The Market is Currently: {isOpen ? "🟢 Open" : "🔴 Closed"}
+      </h3>
+      <p style={{ textAlign: "center", marginTop: "0.5rem" }}>
+        {isOpen
+          ? "Market is open during regular trading hours."
+          : "Market is currently closed."}
+      </p>
+
+      <table className="market-hours-table" style={{ width: "100%", marginTop: "1rem" }}>
+        <thead>
+          <tr>
+            <th>Day</th>
+            <th>Status</th>
+            <th>Hours</th>
+          </tr>
+        </thead>
+        <tbody>
+          {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(
+            (dayName, i) => {
+              const isWeekday = i < 5;
+              return (
+                <tr key={dayName}>
+                  <td>{dayName}</td>
+                  <td>{isWeekday ? "Open" : "Closed"}</td>
+                  <td>{isWeekday ? `${marketSchedule.open_time} - ${marketSchedule.close_time}` : "-"}</td>
+                </tr>
+              );
+            }
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+return (
+  <div className="dashboard-container">
+      {showAdminToast && (
+        <div className="admin-toast">
+          ⚠️ The admin has temporarily opened the market.
+        </div>
+      )}
+
       <div className="dashboard-header">
         <h2>Welcome to your dashboard!</h2>
         {account?.full_name && <h3>{account.full_name}!</h3>}

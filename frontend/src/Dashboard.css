@@ -188,3 +188,29 @@
 .filter-button:hover {
   background-color: #263238;
 }
+
+.admin-toast {
+  position: fixed;
+  top: -80px;            /* start off-screen */
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #ff9800;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  animation: slideDown 0.4s ease-out forwards;
+}
+
+@keyframes slideDown {
+  from {
+    top: -80px;
+    opacity: 0;
+  }
+  to {
+    top: 20px;
+    opacity: 1;
+  }
+}

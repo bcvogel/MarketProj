@@ -166,11 +166,21 @@ def get_market_schedule(db: Session = Depends(get_db)):
     schedule = db.query(MarketSchedule).first()
     if not schedule:
         raise HTTPException(status_code=404, detail="Market schedule not found")
+
+    # Normalize holidays to a list of strings
+    holidays_list = (
+        sorted([h.strip() for h in schedule.holidays.split(",") if h.strip()])
+        if schedule.holidays
+        else []
+    )
+
     return {
+        "id": schedule.id,
         "is_open": schedule.is_open,
         "open_time": schedule.open_time,
         "close_time": schedule.close_time,
-        "holidays": sorted(schedule.holidays.split(",")) if schedule.holidays else []
+        "holidays": holidays_list,
+        "force_open": schedule.force_open, 
     }
 
 @app.post("/market/hours")
